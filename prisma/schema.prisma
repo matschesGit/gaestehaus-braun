@@ -1,0 +1,134 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum BookingStatus {
+  INQUIRY
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+enum UserRole {
+  OWNER
+  MANAGER
+}
+
+model Apartment {
+  id             String           @id @default(cuid())
+  title          String
+  slug           String           @unique
+  description    String
+  maxGuests      Int
+  bedrooms       Int              @default(1)
+  bathrooms      Int              @default(1)
+  basePriceCents Int
+  currency       String           @default("EUR")
+  isActive       Boolean          @default(true)
+  sortOrder      Int              @default(0)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  photos         ApartmentPhoto[]
+  rates          Rate[]
+  bookings       Booking[]
+  blockedDates   BlockedDate[]
+}
+
+model ApartmentPhoto {
+  id          String    @id @default(cuid())
+  apartmentId String
+  url         String
+  alt         String?
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  apartment   Apartment @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+
+  @@index([apartmentId, sortOrder])
+}
+
+model Customer {
+  id        String    @id @default(cuid())
+  firstName String
+  lastName  String
+  email     String    @unique
+  phone     String?
+  notes     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  bookings  Booking[]
+}
+
+model Booking {
+  id              String        @id @default(cuid())
+  apartmentId     String
+  customerId      String
+  checkIn         DateTime
+  checkOut        DateTime
+  guests          Int
+  status          BookingStatus @default(INQUIRY)
+  totalPriceCents Int?
+  currency        String        @default("EUR")
+  notes           String?
+  internalNotes   String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  apartment       Apartment     @relation(fields: [apartmentId], references: [id], onDelete: Restrict)
+  customer        Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  @@index([apartmentId, checkIn, checkOut])
+  @@index([customerId])
+  @@index([status])
+}
+
+model Rate {
+  id               String    @id @default(cuid())
+  apartmentId      String
+  name             String
+  startDate        DateTime
+  endDate          DateTime
+  nightlyPriceCents Int
+  minNights        Int       @default(1)
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  apartment        Apartment @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+
+  @@index([apartmentId, startDate, endDate])
+}
+
+model BlockedDate {
+  id          String    @id @default(cuid())
+  apartmentId String
+  startDate   DateTime
+  endDate     DateTime
+  reason      String?
+  createdAt   DateTime  @default(now())
+  apartment   Apartment @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+
+  @@index([apartmentId, startDate, endDate])
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  passwordResetTokenHash String? @unique
+  passwordResetExpiresAt DateTime?
+  displayName  String
+  role         UserRole @default(MANAGER)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
