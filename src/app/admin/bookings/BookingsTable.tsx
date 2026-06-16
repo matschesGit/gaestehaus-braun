@@ -168,36 +168,36 @@ export default function BookingsTable({ initial }: { initial: Booking[] }) {
               </button>
             </div>
             <div className="px-6 py-4 space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-stone-400 text-xs">Gast</p>
-                  <p className="text-stone-800 font-medium">
-                    {selected.customer.firstName} {selected.customer.lastName}
-                  </p>
-                  <p className="text-stone-500">{selected.customer.email}</p>
-                  {selected.customer.phone && (
-                    <p className="text-stone-500">{selected.customer.phone}</p>
-                  )}
-                </div>
-                <div>
-                  <p className="text-stone-400 text-xs">Unterkunft</p>
-                  <p className="text-stone-800">{selected.apartment}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <div className="bg-stone-50 rounded-lg p-3">
+                  <p className="text-stone-400 text-xs mb-2">Reisezeitraum</p>
+                  <p className="text-stone-500">Unterkunft: <span className="text-stone-800">{selected.apartment}</span></p>
                   <p className="text-stone-500">
-                    {new Date(selected.checkIn).toLocaleDateString("de-DE")} –{" "}
-                    {new Date(selected.checkOut).toLocaleDateString("de-DE")}
+                    Anreise: <span className="text-stone-800">{new Date(selected.checkIn).toLocaleDateString("de-DE")}</span>
                   </p>
-                  <p className="text-stone-500">{selected.guests} Gäste</p>
+                  <p className="text-stone-500">
+                    Abreise: <span className="text-stone-800">{new Date(selected.checkOut).toLocaleDateString("de-DE")}</span>
+                  </p>
+                  <p className="text-stone-500">Gäste: <span className="text-stone-800">{selected.guests}</span></p>
+                </div>
+
+                <div className="bg-stone-50 rounded-lg p-3">
+                  <p className="text-stone-400 text-xs mb-2">Kontaktdaten</p>
+                  <p className="text-stone-500">Vorname: <span className="text-stone-800">{selected.customer.firstName}</span></p>
+                  <p className="text-stone-500">Nachname: <span className="text-stone-800">{selected.customer.lastName}</span></p>
+                  <p className="text-stone-500">E-Mail: <span className="text-stone-800">{selected.customer.email}</span></p>
+                  <p className="text-stone-500">
+                    Telefon: <span className="text-stone-800">{selected.customer.phone || "-"}</span>
+                  </p>
                 </div>
               </div>
 
-              {selected.notes && (
-                <div>
-                  <p className="text-stone-400 text-xs mb-1">Nachricht des Gastes</p>
-                  <p className="text-stone-600 text-sm bg-stone-50 rounded-lg p-3">
-                    {selected.notes}
-                  </p>
-                </div>
-              )}
+              <div>
+                <p className="text-stone-400 text-xs mb-1">Nachricht des Gastes</p>
+                <p className="text-stone-600 text-sm bg-stone-50 rounded-lg p-3 whitespace-pre-wrap">
+                  {selected.notes || "-"}
+                </p>
+              </div>
 
               <div>
                 <label className="text-stone-400 text-xs block mb-1">Status ändern</label>
