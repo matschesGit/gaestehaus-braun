@@ -33,7 +33,7 @@ export default async function AdminLayout({
             <Link href="/admin/blocked-dates" className="text-stone-300 hover:text-white transition-colors">
               Sperrzeiten
             </Link>
-            <Link href="/admin/forgot-password" className="text-stone-300 hover:text-white transition-colors">
+            <Link href="/admin/change-password" className="text-stone-300 hover:text-white transition-colors">
               Passwort ändern
             </Link>
           </nav>
