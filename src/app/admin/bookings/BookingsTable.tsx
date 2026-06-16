@@ -83,7 +83,7 @@ export default function BookingsTable({ initial }: { initial: Booking[] }) {
       )}
 
       {/* Filter */}
-      <div className="flex gap-2 mb-4">
+      <div className="flex flex-wrap gap-2 mb-4">
         {["ALL", "INQUIRY", "PENDING", "CONFIRMED", "CANCELLED"].map((s) => (
           <button
             key={s}
@@ -100,7 +100,8 @@ export default function BookingsTable({ initial }: { initial: Booking[] }) {
       </div>
 
       <div className="bg-white rounded-2xl shadow overflow-hidden">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[780px] text-sm">
           <thead>
             <tr className="text-left text-stone-400 text-xs border-b border-stone-100">
               <th className="px-5 py-3 font-medium">Gast</th>
@@ -115,25 +116,25 @@ export default function BookingsTable({ initial }: { initial: Booking[] }) {
           <tbody>
             {filtered.map((b) => (
               <tr key={b.id} className="border-b border-stone-50 hover:bg-stone-50">
-                <td className="px-5 py-3 text-stone-700">
+                <td className="px-5 py-3 text-stone-700 min-w-[180px]">
                   {b.customer.firstName} {b.customer.lastName}
                 </td>
-                <td className="px-5 py-3 text-stone-500">{b.apartment}</td>
-                <td className="px-5 py-3 text-stone-500">
+                <td className="px-5 py-3 text-stone-500 min-w-[220px]">{b.apartment}</td>
+                <td className="px-5 py-3 text-stone-500 whitespace-nowrap">
                   {new Date(b.checkIn).toLocaleDateString("de-DE")}
                 </td>
-                <td className="px-5 py-3 text-stone-500">
+                <td className="px-5 py-3 text-stone-500 whitespace-nowrap">
                   {new Date(b.checkOut).toLocaleDateString("de-DE")}
                 </td>
-                <td className="px-5 py-3 text-stone-500">{b.guests}</td>
-                <td className="px-5 py-3">
+                <td className="px-5 py-3 text-stone-500 whitespace-nowrap">{b.guests}</td>
+                <td className="px-5 py-3 whitespace-nowrap">
                   <span
                     className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLOR[b.status]}`}
                   >
                     {STATUS_LABEL[b.status]}
                   </span>
                 </td>
-                <td className="px-5 py-3">
+                <td className="px-5 py-3 whitespace-nowrap">
                   <button
                     onClick={() => setSelected(b)}
                     className="text-amber-600 hover:underline text-xs"
@@ -151,7 +152,8 @@ export default function BookingsTable({ initial }: { initial: Booking[] }) {
               </tr>
             )}
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
 
       {/* Detail-Panel */}
