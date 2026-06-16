@@ -25,6 +25,8 @@ export async function GET() {
           totalAmountCents: true,
           depositAmountCents: true,
           balanceAmountCents: true,
+          depositPaidAt: true,
+          balancePaidAt: true,
           currency: true,
           emailSentAt: true,
         },
@@ -60,6 +62,8 @@ export async function GET() {
           totalAmountCents: b.invoice.totalAmountCents,
           depositAmountCents: b.invoice.depositAmountCents,
           balanceAmountCents: b.invoice.balanceAmountCents,
+          depositPaidAt: b.invoice.depositPaidAt,
+          balancePaidAt: b.invoice.balancePaidAt,
           currency: b.invoice.currency,
           emailSentAt: b.invoice.emailSentAt,
         }

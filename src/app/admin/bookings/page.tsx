@@ -17,6 +17,8 @@ export default async function BookingsPage() {
           totalAmountCents: true,
           depositAmountCents: true,
           balanceAmountCents: true,
+          depositPaidAt: true,
+          balancePaidAt: true,
           currency: true,
           emailSentAt: true,
         },
@@ -47,6 +49,8 @@ export default async function BookingsPage() {
           totalAmountCents: b.invoice.totalAmountCents,
           depositAmountCents: b.invoice.depositAmountCents,
           balanceAmountCents: b.invoice.balanceAmountCents,
+          depositPaidAt: b.invoice.depositPaidAt?.toISOString() ?? null,
+          balancePaidAt: b.invoice.balancePaidAt?.toISOString() ?? null,
           currency: b.invoice.currency,
           emailSentAt: b.invoice.emailSentAt?.toISOString() ?? null,
         }

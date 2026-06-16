@@ -102,6 +102,8 @@ model Invoice {
   totalAmountCents   Int
   depositAmountCents Int
   balanceAmountCents Int
+  depositPaidAt      DateTime?
+  balancePaidAt      DateTime?
   currency           String   @default("EUR")
   documentHtml       String
   emailSentAt        DateTime?

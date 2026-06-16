@@ -30,6 +30,8 @@ type Booking = {
     totalAmountCents: number;
     depositAmountCents: number;
     balanceAmountCents: number;
+    depositPaidAt: string | null;
+    balancePaidAt: string | null;
     currency: string;
     emailSentAt: string | null;
   } | null;
@@ -50,6 +52,11 @@ function formatMoney(cents: number, currency: string) {
   return new Intl.NumberFormat("de-DE", { style: "currency", currency }).format(cents / 100);
 }
 
+function paymentLabel(date: string | null) {
+  if (!date) return "offen";
+  return `bezahlt am ${new Date(date).toLocaleDateString("de-DE")}`;
+}
+
 export default function BookingsTable({ initial }: { initial: Booking[] }) {
   const [bookings, setBookings] = useState<Booking[]>(initial);
   const [selected, setSelected] = useState<Booking | null>(null);
@@ -58,7 +65,7 @@ export default function BookingsTable({ initial }: { initial: Booking[] }) {
   const [success, setSuccess] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
 
-  async function updateBooking(id: string, patch: Partial<Booking>) {
+  async function updateBooking(id: string, patch: Record<string, unknown>) {
     setSaving(true);
     setError(null);
     setSuccess(null);
@@ -241,8 +248,40 @@ export default function BookingsTable({ initial }: { initial: Booking[] }) {
                       Restzahlung: <span className="text-stone-800">{formatMoney(selected.invoice.balanceAmountCents, selected.invoice.currency)}</span> bis {new Date(selected.invoice.balanceDueDate).toLocaleDateString("de-DE")}
                     </p>
                     <p className="text-stone-600">
+                      Anzahlung Status: <span className="text-stone-800">{paymentLabel(selected.invoice.depositPaidAt)}</span>
+                    </p>
+                    <p className="text-stone-600">
+                      Restzahlung Status: <span className="text-stone-800">{paymentLabel(selected.invoice.balancePaidAt)}</span>
+                    </p>
+                    <p className="text-stone-600">
                       Versandstatus: <span className="text-stone-800">{selected.invoice.emailSentAt ? `per E-Mail am ${new Date(selected.invoice.emailSentAt).toLocaleDateString("de-DE")}` : "noch nicht versendet"}</span>
                     </p>
+                    <div className="pt-2 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateBooking(selected.id, {
+                            markDepositPaid: !selected.invoice?.depositPaidAt,
+                          })
+                        }
+                        disabled={saving}
+                        className="px-3 py-1.5 rounded-full border border-stone-300 text-xs text-stone-700 hover:border-stone-500 disabled:opacity-60"
+                      >
+                        {selected.invoice.depositPaidAt ? "Anzahlung zurücksetzen" : "Anzahlung als bezahlt markieren"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateBooking(selected.id, {
+                            markBalancePaid: !selected.invoice?.balancePaidAt,
+                          })
+                        }
+                        disabled={saving}
+                        className="px-3 py-1.5 rounded-full border border-stone-300 text-xs text-stone-700 hover:border-stone-500 disabled:opacity-60"
+                      >
+                        {selected.invoice.balancePaidAt ? "Restzahlung zurücksetzen" : "Restzahlung als bezahlt markieren"}
+                      </button>
+                    </div>
                     <Link
                       href={`/admin/bookings/${selected.id}/invoice`}
                       target="_blank"

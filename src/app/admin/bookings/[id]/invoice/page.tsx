@@ -19,6 +19,8 @@ export default async function BookingInvoicePage({
           invoiceNumber: true,
           documentHtml: true,
           issueDate: true,
+          depositPaidAt: true,
+          balancePaidAt: true,
         },
       },
     },
@@ -35,6 +37,9 @@ export default async function BookingInvoicePage({
           <h1 className="text-xl font-semibold text-stone-800">Rechnung {booking.invoice.invoiceNumber}</h1>
           <p className="text-sm text-stone-500">
             {booking.customer.firstName} {booking.customer.lastName} - {booking.apartment.title}
+          </p>
+          <p className="text-xs text-stone-500 mt-1">
+            Anzahlung: {booking.invoice.depositPaidAt ? `bezahlt am ${new Date(booking.invoice.depositPaidAt).toLocaleDateString("de-DE")}` : "offen"} | Restzahlung: {booking.invoice.balancePaidAt ? `bezahlt am ${new Date(booking.invoice.balancePaidAt).toLocaleDateString("de-DE")}` : "offen"}
           </p>
         </div>
         <div className="p-6" dangerouslySetInnerHTML={{ __html: booking.invoice.documentHtml }} />
