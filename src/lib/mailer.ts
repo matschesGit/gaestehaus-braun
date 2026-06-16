@@ -40,34 +40,39 @@ export async function sendBookingInvoiceEmail(input: BookingInvoiceMailInput): P
     return { sent: false, reason: "SMTP nicht konfiguriert." };
   }
 
-  const transporter = nodemailer.createTransport({
-    host: config.host,
-    port: config.port,
-    secure: config.secure,
-    auth: config.auth,
-  });
+  try {
+    const transporter = nodemailer.createTransport({
+      host: config.host,
+      port: config.port,
+      secure: config.secure,
+      auth: config.auth,
+    });
 
-  await transporter.sendMail({
-    from: config.from,
-    to: input.to,
-    subject: `Ihre Buchung im Gästehaus Braun - Rechnung ${input.invoiceNumber}`,
-    html: `
-      <div style="font-family:Arial, Helvetica, sans-serif;line-height:1.6;color:#1c1917;">
-        <p>Guten Tag ${input.customerName},</p>
-        <p>vielen Dank für Ihre Buchung der Unterkunft <strong>${input.apartmentTitle}</strong>.</p>
-        <p>Ihre Buchung wurde angelegt und die Rechnung ${input.invoiceNumber} ist unten sowie im Anhang enthalten.</p>
-        <p>Buchungs-ID: <strong>${input.bookingId}</strong></p>
-        <div style="margin-top:24px;">${input.invoiceHtml}</div>
-      </div>
-    `,
-    attachments: [
-      {
-        filename: `${input.invoiceNumber}.html`,
-        content: `<!doctype html><html><body>${input.invoiceHtml}</body></html>`,
-        contentType: "text/html; charset=utf-8",
-      },
-    ],
-  });
+    await transporter.sendMail({
+      from: config.from,
+      to: input.to,
+      subject: `Ihre Buchung im Gästehaus Braun - Rechnung ${input.invoiceNumber}`,
+      html: `
+        <div style="font-family:Arial, Helvetica, sans-serif;line-height:1.6;color:#1c1917;">
+          <p>Guten Tag ${input.customerName},</p>
+          <p>vielen Dank für Ihre Buchung der Unterkunft <strong>${input.apartmentTitle}</strong>.</p>
+          <p>Ihre Buchung wurde angelegt und die Rechnung ${input.invoiceNumber} ist unten sowie im Anhang enthalten.</p>
+          <p>Buchungs-ID: <strong>${input.bookingId}</strong></p>
+          <div style="margin-top:24px;">${input.invoiceHtml}</div>
+        </div>
+      `,
+      attachments: [
+        {
+          filename: `${input.invoiceNumber}.html`,
+          content: `<!doctype html><html><body>${input.invoiceHtml}</body></html>`,
+          contentType: "text/html; charset=utf-8",
+        },
+      ],
+    });
 
-  return { sent: true };
+    return { sent: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unbekannter SMTP-Fehler";
+    return { sent: false, reason: `E-Mail-Versand fehlgeschlagen: ${message}` };
+  }
 }
