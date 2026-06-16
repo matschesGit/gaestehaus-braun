@@ -2,11 +2,10 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 
 export default async function AdminDashboard() {
-  const [total, pending, confirmed, inquiry] = await Promise.all([
+  const [total, pending, confirmed] = await Promise.all([
     prisma.booking.count(),
     prisma.booking.count({ where: { status: "PENDING" } }),
     prisma.booking.count({ where: { status: "CONFIRMED" } }),
-    prisma.booking.count({ where: { status: "INQUIRY" } }),
   ]);
 
   const recent = await prisma.booking.findMany({
@@ -19,13 +18,11 @@ export default async function AdminDashboard() {
   });
 
   const STATUS_LABEL: Record<string, string> = {
-    INQUIRY: "Anfrage",
-    PENDING: "Ausstehend",
+    PENDING: "Offen",
     CONFIRMED: "Bestätigt",
     CANCELLED: "Storniert",
   };
   const STATUS_COLOR: Record<string, string> = {
-    INQUIRY: "bg-yellow-100 text-yellow-700",
     PENDING: "bg-blue-100 text-blue-700",
     CONFIRMED: "bg-green-100 text-green-700",
     CANCELLED: "bg-stone-100 text-stone-500",
@@ -36,11 +33,10 @@ export default async function AdminDashboard() {
       <h1 className="text-2xl font-semibold text-stone-800 mb-6">Dashboard</h1>
 
       {/* Kennzahlen */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         {[
           { label: "Gesamt", value: total, color: "border-stone-300" },
-          { label: "Anfragen", value: inquiry, color: "border-yellow-400" },
-          { label: "Ausstehend", value: pending, color: "border-blue-400" },
+          { label: "Offen", value: pending, color: "border-blue-400" },
           { label: "Bestätigt", value: confirmed, color: "border-green-400" },
         ].map(({ label, value, color }) => (
           <div

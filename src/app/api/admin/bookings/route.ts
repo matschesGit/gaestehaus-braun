@@ -15,6 +15,20 @@ export async function GET() {
     include: {
       apartment: { select: { title: true } },
       customer: { select: { firstName: true, lastName: true, email: true, phone: true } },
+      invoice: {
+        select: {
+          id: true,
+          invoiceNumber: true,
+          issueDate: true,
+          depositDueDate: true,
+          balanceDueDate: true,
+          totalAmountCents: true,
+          depositAmountCents: true,
+          balanceAmountCents: true,
+          currency: true,
+          emailSentAt: true,
+        },
+      },
     },
   });
 
@@ -36,6 +50,20 @@ export async function GET() {
       email: b.customer.email,
       phone: b.customer.phone,
     },
+    invoice: b.invoice
+      ? {
+          id: b.invoice.id,
+          invoiceNumber: b.invoice.invoiceNumber,
+          issueDate: b.invoice.issueDate,
+          depositDueDate: b.invoice.depositDueDate,
+          balanceDueDate: b.invoice.balanceDueDate,
+          totalAmountCents: b.invoice.totalAmountCents,
+          depositAmountCents: b.invoice.depositAmountCents,
+          balanceAmountCents: b.invoice.balanceAmountCents,
+          currency: b.invoice.currency,
+          emailSentAt: b.invoice.emailSentAt,
+        }
+      : null,
   }));
 
   return Response.json({ bookings: result });

@@ -15,7 +15,6 @@ datasource db {
 }
 
 enum BookingStatus {
-  INQUIRY
   PENDING
   CONFIRMED
   CANCELLED
@@ -77,7 +76,7 @@ model Booking {
   checkIn         DateTime
   checkOut        DateTime
   guests          Int
-  status          BookingStatus @default(INQUIRY)
+  status          BookingStatus @default(PENDING)
   totalPriceCents Int?
   currency        String        @default("EUR")
   notes           String?
@@ -86,10 +85,31 @@ model Booking {
   updatedAt       DateTime      @updatedAt
   apartment       Apartment     @relation(fields: [apartmentId], references: [id], onDelete: Restrict)
   customer        Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  invoice         Invoice?
 
   @@index([apartmentId, checkIn, checkOut])
   @@index([customerId])
   @@index([status])
+}
+
+model Invoice {
+  id                 String   @id @default(cuid())
+  bookingId          String   @unique
+  invoiceNumber      String   @unique
+  issueDate          DateTime
+  depositDueDate     DateTime
+  balanceDueDate     DateTime
+  totalAmountCents   Int
+  depositAmountCents Int
+  balanceAmountCents Int
+  currency           String   @default("EUR")
+  documentHtml       String
+  emailSentAt        DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  booking            Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([issueDate])
 }
 
 model Rate {

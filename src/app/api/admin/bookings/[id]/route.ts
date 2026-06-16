@@ -16,7 +16,7 @@ export async function PATCH(
   const { id } = await context.params;
   const body = await request.json();
 
-  const ALLOWED_STATUSES = ["INQUIRY", "PENDING", "CONFIRMED", "CANCELLED"] as const;
+  const ALLOWED_STATUSES = ["PENDING", "CONFIRMED", "CANCELLED"] as const;
   type Status = (typeof ALLOWED_STATUSES)[number];
 
   const updates: {

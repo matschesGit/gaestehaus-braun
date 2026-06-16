@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 type Booking = {
@@ -20,20 +21,34 @@ type Booking = {
     email: string;
     phone: string | null;
   };
+  invoice: {
+    id: string;
+    invoiceNumber: string;
+    issueDate: string;
+    depositDueDate: string;
+    balanceDueDate: string;
+    totalAmountCents: number;
+    depositAmountCents: number;
+    balanceAmountCents: number;
+    currency: string;
+    emailSentAt: string | null;
+  } | null;
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  INQUIRY: "Anfrage",
-  PENDING: "Ausstehend",
+  PENDING: "Offen",
   CONFIRMED: "Bestätigt",
   CANCELLED: "Storniert",
 };
 const STATUS_COLOR: Record<string, string> = {
-  INQUIRY: "bg-yellow-100 text-yellow-700",
   PENDING: "bg-blue-100 text-blue-700",
   CONFIRMED: "bg-green-100 text-green-700",
   CANCELLED: "bg-stone-100 text-stone-500",
 };
+
+function formatMoney(cents: number, currency: string) {
+  return new Intl.NumberFormat("de-DE", { style: "currency", currency }).format(cents / 100);
+}
 
 export default function BookingsTable({ initial }: { initial: Booking[] }) {
   const [bookings, setBookings] = useState<Booking[]>(initial);
@@ -84,7 +99,7 @@ export default function BookingsTable({ initial }: { initial: Booking[] }) {
 
       {/* Filter */}
       <div className="flex flex-wrap gap-2 mb-4">
-        {["ALL", "INQUIRY", "PENDING", "CONFIRMED", "CANCELLED"].map((s) => (
+        {["ALL", "PENDING", "CONFIRMED", "CANCELLED"].map((s) => (
           <button
             key={s}
             onClick={() => setFilterStatus(s)}
@@ -115,7 +130,11 @@ export default function BookingsTable({ initial }: { initial: Booking[] }) {
           </thead>
           <tbody>
             {filtered.map((b) => (
-              <tr key={b.id} className="border-b border-stone-50 hover:bg-stone-50">
+              <tr
+                key={b.id}
+                className="border-b border-stone-50 hover:bg-stone-50 cursor-pointer"
+                onClick={() => setSelected(b)}
+              >
                 <td className="px-5 py-3 text-stone-700 min-w-[180px]">
                   {b.customer.firstName} {b.customer.lastName}
                 </td>
@@ -136,7 +155,11 @@ export default function BookingsTable({ initial }: { initial: Booking[] }) {
                 </td>
                 <td className="px-5 py-3 whitespace-nowrap">
                   <button
-                    onClick={() => setSelected(b)}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelected(b);
+                    }}
                     className="text-amber-600 hover:underline text-xs"
                   >
                     Details
@@ -199,6 +222,38 @@ export default function BookingsTable({ initial }: { initial: Booking[] }) {
                 <p className="text-stone-600 text-sm bg-stone-50 rounded-lg p-3 whitespace-pre-wrap">
                   {selected.notes || "-"}
                 </p>
+              </div>
+
+              <div>
+                <p className="text-stone-400 text-xs mb-1">Rechnung</p>
+                {selected.invoice ? (
+                  <div className="bg-stone-50 rounded-lg p-3 space-y-1 text-sm">
+                    <p className="text-stone-600">
+                      Rechnungsnummer: <span className="text-stone-800 font-medium">{selected.invoice.invoiceNumber}</span>
+                    </p>
+                    <p className="text-stone-600">
+                      Gesamtbetrag: <span className="text-stone-800">{formatMoney(selected.invoice.totalAmountCents, selected.invoice.currency)}</span>
+                    </p>
+                    <p className="text-stone-600">
+                      Anzahlung: <span className="text-stone-800">{formatMoney(selected.invoice.depositAmountCents, selected.invoice.currency)}</span> bis {new Date(selected.invoice.depositDueDate).toLocaleDateString("de-DE")}
+                    </p>
+                    <p className="text-stone-600">
+                      Restzahlung: <span className="text-stone-800">{formatMoney(selected.invoice.balanceAmountCents, selected.invoice.currency)}</span> bis {new Date(selected.invoice.balanceDueDate).toLocaleDateString("de-DE")}
+                    </p>
+                    <p className="text-stone-600">
+                      Versandstatus: <span className="text-stone-800">{selected.invoice.emailSentAt ? `per E-Mail am ${new Date(selected.invoice.emailSentAt).toLocaleDateString("de-DE")}` : "noch nicht versendet"}</span>
+                    </p>
+                    <Link
+                      href={`/admin/bookings/${selected.id}/invoice`}
+                      target="_blank"
+                      className="inline-flex text-amber-700 hover:underline pt-1"
+                    >
+                      Rechnung öffnen
+                    </Link>
+                  </div>
+                ) : (
+                  <p className="text-stone-600 text-sm bg-stone-50 rounded-lg p-3">Keine Rechnung vorhanden.</p>
+                )}
               </div>
 
               <div>
