@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import Link from "next/link";
 
 export default async function BookingInvoicePage({
   params,
@@ -21,6 +22,8 @@ export default async function BookingInvoicePage({
           issueDate: true,
           depositPaidAt: true,
           balancePaidAt: true,
+          reminderLevel: true,
+          nextReminderDueAt: true,
         },
       },
     },
@@ -41,6 +44,16 @@ export default async function BookingInvoicePage({
           <p className="text-xs text-stone-500 mt-1">
             Anzahlung: {booking.invoice.depositPaidAt ? `bezahlt am ${new Date(booking.invoice.depositPaidAt).toLocaleDateString("de-DE")}` : "offen"} | Restzahlung: {booking.invoice.balancePaidAt ? `bezahlt am ${new Date(booking.invoice.balancePaidAt).toLocaleDateString("de-DE")}` : "offen"}
           </p>
+          <p className="text-xs text-stone-500 mt-1">
+            Mahnstufe: {booking.invoice.reminderLevel} | Nächste Erinnerung: {booking.invoice.nextReminderDueAt ? new Date(booking.invoice.nextReminderDueAt).toLocaleDateString("de-DE") : "nicht geplant"}
+          </p>
+          <Link
+            href={`/api/admin/bookings/${booking.id}/invoice/pdf`}
+            target="_blank"
+            className="inline-flex text-sm text-amber-700 hover:underline mt-2"
+          >
+            PDF öffnen
+          </Link>
         </div>
         <div className="p-6" dangerouslySetInnerHTML={{ __html: booking.invoice.documentHtml }} />
       </div>

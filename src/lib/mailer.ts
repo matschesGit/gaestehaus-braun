@@ -9,6 +9,17 @@ type BookingInvoiceMailInput = {
   invoiceHtml: string;
 };
 
+type GenericInvoiceMailInput = {
+  to: string;
+  customerName: string;
+  apartmentTitle: string;
+  invoiceNumber: string;
+  bookingId: string;
+  invoiceHtml: string;
+  kind: "invoice" | "reminder";
+  reminderLevel?: number;
+};
+
 type MailResult = {
   sent: boolean;
   reason?: string;
@@ -35,10 +46,27 @@ function getMailConfig() {
 }
 
 export async function sendBookingInvoiceEmail(input: BookingInvoiceMailInput): Promise<MailResult> {
+  return sendInvoiceEmail({
+    ...input,
+    kind: "invoice",
+  });
+}
+
+export async function sendInvoiceEmail(input: GenericInvoiceMailInput): Promise<MailResult> {
   const config = getMailConfig();
   if (!config) {
     return { sent: false, reason: "SMTP nicht konfiguriert." };
   }
+
+  const subject =
+    input.kind === "reminder"
+      ? `Zahlungserinnerung ${input.invoiceNumber} (Mahnstufe ${input.reminderLevel ?? 1})`
+      : `Ihre Buchung im Gästehaus Braun - Rechnung ${input.invoiceNumber}`;
+
+  const intro =
+    input.kind === "reminder"
+      ? `<p>Guten Tag ${input.customerName},</p><p>dies ist eine Zahlungserinnerung zu Ihrer Rechnung <strong>${input.invoiceNumber}</strong>.</p>`
+      : `<p>Guten Tag ${input.customerName},</p><p>vielen Dank für Ihre Buchung der Unterkunft <strong>${input.apartmentTitle}</strong>.</p><p>Ihre Buchung wurde angelegt und die Rechnung ${input.invoiceNumber} ist unten sowie im Anhang enthalten.</p>`;
 
   try {
     const transporter = nodemailer.createTransport({
@@ -51,12 +79,10 @@ export async function sendBookingInvoiceEmail(input: BookingInvoiceMailInput): P
     await transporter.sendMail({
       from: config.from,
       to: input.to,
-      subject: `Ihre Buchung im Gästehaus Braun - Rechnung ${input.invoiceNumber}`,
+      subject,
       html: `
         <div style="font-family:Arial, Helvetica, sans-serif;line-height:1.6;color:#1c1917;">
-          <p>Guten Tag ${input.customerName},</p>
-          <p>vielen Dank für Ihre Buchung der Unterkunft <strong>${input.apartmentTitle}</strong>.</p>
-          <p>Ihre Buchung wurde angelegt und die Rechnung ${input.invoiceNumber} ist unten sowie im Anhang enthalten.</p>
+          ${intro}
           <p>Buchungs-ID: <strong>${input.bookingId}</strong></p>
           <div style="margin-top:24px;">${input.invoiceHtml}</div>
         </div>

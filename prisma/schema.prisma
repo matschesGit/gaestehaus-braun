@@ -104,6 +104,9 @@ model Invoice {
   balanceAmountCents Int
   depositPaidAt      DateTime?
   balancePaidAt      DateTime?
+  reminderLevel      Int      @default(0)
+  nextReminderDueAt  DateTime?
+  lastReminderSentAt DateTime?
   currency           String   @default("EUR")
   documentHtml       String
   emailSentAt        DateTime?

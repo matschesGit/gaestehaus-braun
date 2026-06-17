@@ -32,6 +32,9 @@ type Booking = {
     balanceAmountCents: number;
     depositPaidAt: string | null;
     balancePaidAt: string | null;
+    reminderLevel: number;
+    nextReminderDueAt: string | null;
+    lastReminderSentAt: string | null;
     currency: string;
     emailSentAt: string | null;
   } | null;
@@ -57,6 +60,11 @@ function paymentLabel(date: string | null) {
   return `bezahlt am ${new Date(date).toLocaleDateString("de-DE")}`;
 }
 
+function dateToInputValue(date: string | null) {
+  if (!date) return "";
+  return new Date(date).toISOString().slice(0, 10);
+}
+
 export default function BookingsTable({ initial }: { initial: Booking[] }) {
   const [bookings, setBookings] = useState<Booking[]>(initial);
   const [selected, setSelected] = useState<Booking | null>(null);
@@ -64,6 +72,12 @@ export default function BookingsTable({ initial }: { initial: Booking[] }) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
+  const [nextReminderDate, setNextReminderDate] = useState<string>("");
+
+  function openDetails(booking: Booking) {
+    setSelected(booking);
+    setNextReminderDate(dateToInputValue(booking.invoice?.nextReminderDueAt ?? null));
+  }
 
   async function updateBooking(id: string, patch: Record<string, unknown>) {
     setSaving(true);
@@ -80,8 +94,75 @@ export default function BookingsTable({ initial }: { initial: Booking[] }) {
       setBookings((prev) =>
         prev.map((b) => (b.id === id ? { ...b, ...data.booking } : b)),
       );
-      if (selected?.id === id) setSelected((prev) => prev && { ...prev, ...data.booking });
+      if (selected?.id === id) {
+        setSelected((prev) => {
+          if (!prev) return prev;
+          const next = { ...prev, ...data.booking };
+          if (next.invoice) {
+            setNextReminderDate(dateToInputValue(next.invoice.nextReminderDueAt));
+          }
+          return next;
+        });
+      }
       setSuccess("Änderung erfolgreich gespeichert.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unbekannter Fehler.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function createInvoice(id: string) {
+    setSaving(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const res = await fetch(`/api/admin/bookings/${id}/invoice`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Rechnung konnte nicht erstellt werden.");
+
+      setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, invoice: data.invoice } : b)));
+      setSelected((prev) => {
+        if (!prev || prev.id !== id) return prev;
+        setNextReminderDate(dateToInputValue(data.invoice.nextReminderDueAt));
+        return { ...prev, invoice: data.invoice };
+      });
+      setSuccess("Rechnung wurde erstellt.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unbekannter Fehler.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function sendInvoice(id: string, kind: "invoice" | "reminder") {
+    setSaving(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const res = await fetch(`/api/admin/bookings/${id}/invoice/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind,
+          nextReminderDueAt: kind === "reminder" && nextReminderDate ? nextReminderDate : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Versand fehlgeschlagen.");
+
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.id === id && b.invoice ? { ...b, invoice: { ...b.invoice, ...data.invoice } } : b,
+        ),
+      );
+      setSelected((prev) => {
+        if (!prev || prev.id !== id || !prev.invoice) return prev;
+        const next = { ...prev, invoice: { ...prev.invoice, ...data.invoice } };
+        setNextReminderDate(dateToInputValue(next.invoice.nextReminderDueAt));
+        return next;
+      });
+      setSuccess(kind === "invoice" ? "Rechnung wurde versendet." : "Mahnung wurde versendet.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unbekannter Fehler.");
     } finally {
@@ -140,7 +221,7 @@ export default function BookingsTable({ initial }: { initial: Booking[] }) {
               <tr
                 key={b.id}
                 className="border-b border-stone-50 hover:bg-stone-50 cursor-pointer"
-                onClick={() => setSelected(b)}
+                onClick={() => openDetails(b)}
               >
                 <td className="px-5 py-3 text-stone-700 min-w-[180px]">
                   {b.customer.firstName} {b.customer.lastName}
@@ -165,7 +246,7 @@ export default function BookingsTable({ initial }: { initial: Booking[] }) {
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setSelected(b);
+                      openDetails(b);
                     }}
                     className="text-amber-600 hover:underline text-xs"
                   >
@@ -254,6 +335,12 @@ export default function BookingsTable({ initial }: { initial: Booking[] }) {
                       Restzahlung Status: <span className="text-stone-800">{paymentLabel(selected.invoice.balancePaidAt)}</span>
                     </p>
                     <p className="text-stone-600">
+                      Mahnstufe: <span className="text-stone-800">{selected.invoice.reminderLevel}</span>
+                    </p>
+                    <p className="text-stone-600">
+                      Nächste Erinnerung: <span className="text-stone-800">{selected.invoice.nextReminderDueAt ? new Date(selected.invoice.nextReminderDueAt).toLocaleDateString("de-DE") : "nicht geplant"}</span>
+                    </p>
+                    <p className="text-stone-600">
                       Versandstatus: <span className="text-stone-800">{selected.invoice.emailSentAt ? `per E-Mail am ${new Date(selected.invoice.emailSentAt).toLocaleDateString("de-DE")}` : "noch nicht versendet"}</span>
                     </p>
                     <div className="pt-2 flex flex-wrap gap-2">
@@ -282,16 +369,95 @@ export default function BookingsTable({ initial }: { initial: Booking[] }) {
                         {selected.invoice.balancePaidAt ? "Restzahlung zurücksetzen" : "Restzahlung als bezahlt markieren"}
                       </button>
                     </div>
+                    <div className="pt-2 flex flex-wrap gap-2 items-center">
+                      <button
+                        type="button"
+                        onClick={() => sendInvoice(selected.id, "invoice")}
+                        disabled={saving}
+                        className="px-3 py-1.5 rounded-full border border-amber-300 text-xs text-amber-800 hover:border-amber-500 disabled:opacity-60"
+                      >
+                        Rechnung erneut senden
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => sendInvoice(selected.id, "reminder")}
+                        disabled={saving}
+                        className="px-3 py-1.5 rounded-full border border-rose-300 text-xs text-rose-800 hover:border-rose-500 disabled:opacity-60"
+                      >
+                        Mahnung senden (Stufe +1)
+                      </button>
+                    </div>
+                    <div className="pt-2 flex flex-wrap gap-2 items-center">
+                      <label className="text-xs text-stone-500">Erinnerungsdatum</label>
+                      <input
+                        type="date"
+                        value={nextReminderDate}
+                        onChange={(e) => setNextReminderDate(e.target.value)}
+                        className="border border-stone-300 rounded-md px-2 py-1 text-xs text-stone-700"
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateBooking(selected.id, {
+                            nextReminderDueAt: nextReminderDate || null,
+                          })
+                        }
+                        disabled={saving}
+                        className="px-2.5 py-1 rounded-md border border-stone-300 text-xs text-stone-700 hover:border-stone-500 disabled:opacity-60"
+                      >
+                        Speichern
+                      </button>
+                    </div>
+                    <div className="pt-1 flex flex-wrap gap-2 items-center">
+                      <label className="text-xs text-stone-500">Mahnstufe</label>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateBooking(selected.id, {
+                            reminderLevel: Math.max(0, selected.invoice!.reminderLevel - 1),
+                          })
+                        }
+                        disabled={saving}
+                        className="px-2 py-1 rounded-md border border-stone-300 text-xs text-stone-700 hover:border-stone-500 disabled:opacity-60"
+                      >
+                        -
+                      </button>
+                      <span className="text-xs font-medium text-stone-700 min-w-6 text-center">
+                        {selected.invoice.reminderLevel}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateBooking(selected.id, {
+                            reminderLevel: selected.invoice!.reminderLevel + 1,
+                          })
+                        }
+                        disabled={saving}
+                        className="px-2 py-1 rounded-md border border-stone-300 text-xs text-stone-700 hover:border-stone-500 disabled:opacity-60"
+                      >
+                        +
+                      </button>
+                    </div>
                     <Link
-                      href={`/admin/bookings/${selected.id}/invoice`}
+                      href={`/api/admin/bookings/${selected.id}/invoice/pdf`}
                       target="_blank"
                       className="inline-flex text-amber-700 hover:underline pt-1"
                     >
-                      Rechnung öffnen
+                      Rechnung als PDF öffnen
                     </Link>
                   </div>
                 ) : (
-                  <p className="text-stone-600 text-sm bg-stone-50 rounded-lg p-3">Keine Rechnung vorhanden.</p>
+                  <div className="bg-stone-50 rounded-lg p-3 space-y-3">
+                    <p className="text-stone-600 text-sm">Keine Rechnung vorhanden.</p>
+                    <button
+                      type="button"
+                      onClick={() => createInvoice(selected.id)}
+                      disabled={saving}
+                      className="px-3 py-1.5 rounded-full border border-amber-300 text-xs text-amber-800 hover:border-amber-500 disabled:opacity-60"
+                    >
+                      Rechnung manuell erstellen
+                    </button>
+                  </div>
                 )}
               </div>
 

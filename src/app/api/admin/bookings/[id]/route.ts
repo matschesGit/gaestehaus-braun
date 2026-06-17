@@ -1,6 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { verifyAdminToken, ADMIN_COOKIE } from "@/lib/auth";
+import { deriveNextReminderDate } from "@/lib/invoices";
+
+function parseDateValue(value: unknown) {
+  if (value === null) return null;
+  if (typeof value !== "string") return undefined;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+}
 
 export async function PATCH(
   request: Request,
@@ -28,6 +36,10 @@ export async function PATCH(
     markDepositPaid?: boolean;
     markBalancePaid?: boolean;
   } = {};
+  const invoiceMetaPatch: {
+    reminderLevel?: number;
+    nextReminderDueAt?: Date | null;
+  } = {};
 
   if (body.status !== undefined) {
     if (!ALLOWED_STATUSES.includes(body.status)) {
@@ -47,11 +59,22 @@ export async function PATCH(
   if (body.markBalancePaid !== undefined) {
     paymentPatch.markBalancePaid = Boolean(body.markBalancePaid);
   }
+  if (body.reminderLevel !== undefined) {
+    invoiceMetaPatch.reminderLevel = Number(body.reminderLevel);
+  }
+  if (body.nextReminderDueAt !== undefined) {
+    const parsed = parseDateValue(body.nextReminderDueAt);
+    if (parsed === undefined && body.nextReminderDueAt !== null) {
+      return Response.json({ error: "Ungültiges Erinnerungsdatum." }, { status: 400 });
+    }
+    invoiceMetaPatch.nextReminderDueAt = parsed ?? null;
+  }
 
   const hasBookingUpdates = Object.keys(updates).length > 0;
   const hasPaymentUpdates = Object.keys(paymentPatch).length > 0;
+  const hasInvoiceMetaUpdates = Object.keys(invoiceMetaPatch).length > 0;
 
-  if (!hasBookingUpdates && !hasPaymentUpdates) {
+  if (!hasBookingUpdates && !hasPaymentUpdates && !hasInvoiceMetaUpdates) {
     return Response.json({ error: "Keine Änderungen übergeben." }, { status: 400 });
   }
 
@@ -96,8 +119,12 @@ export async function PATCH(
             invoice: {
               select: {
                 id: true,
+                depositDueDate: true,
+                balanceDueDate: true,
                 depositPaidAt: true,
                 balancePaidAt: true,
+                reminderLevel: true,
+                nextReminderDueAt: true,
               },
             },
           },
@@ -122,6 +149,22 @@ export async function PATCH(
                 : paymentPatch.markBalancePaid
                   ? (current.invoice.balancePaidAt ?? now)
                   : null,
+            nextReminderDueAt: deriveNextReminderDate({
+              depositDueDate: current.invoice.depositDueDate,
+              balanceDueDate: current.invoice.balanceDueDate,
+              depositPaidAt:
+                paymentPatch.markDepositPaid === undefined
+                  ? current.invoice.depositPaidAt
+                  : paymentPatch.markDepositPaid
+                    ? (current.invoice.depositPaidAt ?? now)
+                    : null,
+              balancePaidAt:
+                paymentPatch.markBalancePaid === undefined
+                  ? current.invoice.balancePaidAt
+                  : paymentPatch.markBalancePaid
+                    ? (current.invoice.balancePaidAt ?? now)
+                    : null,
+            }),
           },
           select: {
             depositPaidAt: true,
@@ -139,6 +182,38 @@ export async function PATCH(
             data: { status: "CONFIRMED" },
           });
         }
+      }
+
+      if (hasInvoiceMetaUpdates) {
+        const current = await tx.booking.findUnique({
+          where: { id },
+          select: {
+            invoice: {
+              select: {
+                id: true,
+                reminderLevel: true,
+              },
+            },
+          },
+        });
+
+        if (!current?.invoice) {
+          throw new Error("Für diese Buchung existiert keine Rechnung.");
+        }
+
+        await tx.invoice.update({
+          where: { id: current.invoice.id },
+          data: {
+            reminderLevel:
+              invoiceMetaPatch.reminderLevel === undefined
+                ? undefined
+                : Math.max(0, invoiceMetaPatch.reminderLevel),
+            nextReminderDueAt:
+              invoiceMetaPatch.nextReminderDueAt === undefined
+                ? undefined
+                : invoiceMetaPatch.nextReminderDueAt,
+          },
+        });
       }
 
       return tx.booking.findUnique({
@@ -160,6 +235,9 @@ export async function PATCH(
               balanceAmountCents: true,
               depositPaidAt: true,
               balancePaidAt: true,
+              reminderLevel: true,
+              nextReminderDueAt: true,
+              lastReminderSentAt: true,
               currency: true,
               emailSentAt: true,
             },
