@@ -17,18 +17,20 @@ async function ensureAdmin() {
 function normalizePhotos(photos: unknown): ApartmentPhotoInput[] {
   if (!Array.isArray(photos)) return [];
 
-  return photos
-    .map((entry) => {
-      if (!entry || typeof entry !== "object") return null;
-      const data = entry as { url?: unknown; alt?: unknown };
-      const url = String(data.url ?? "").trim();
-      if (!url) return null;
-      return {
-        url,
-        alt: String(data.alt ?? "").trim() || undefined,
-      };
-    })
-    .filter((entry): entry is ApartmentPhotoInput => Boolean(entry));
+  const result: ApartmentPhotoInput[] = [];
+  
+  for (const entry of photos) {
+    if (!entry || typeof entry !== "object") continue;
+    const data = entry as { url?: unknown; alt?: unknown };
+    const url = String(data.url ?? "").trim();
+    if (!url) continue;
+    result.push({
+      url,
+      alt: String(data.alt ?? "").trim() || undefined,
+    });
+  }
+  
+  return result;
 }
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
