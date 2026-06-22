@@ -112,16 +112,16 @@ export async function POST(request: Request) {
     );
   }
 
-  const apartmentId = body.apartmentId;
-  const firstName = body.firstName.trim();
-  const lastName = body.lastName.trim();
-  const email = body.email.trim().toLowerCase();
-  const street = body.street.trim();
-  const houseNumber = body.houseNumber.trim();
-  const postalCode = body.postalCode.trim();
-  const city = body.city.trim();
-  const country = body.country.trim();
-  const guests = body.guests;
+  const apartmentId = body.apartmentId!;
+  const firstName = body.firstName!.trim();
+  const lastName = body.lastName!.trim();
+  const email = body.email!.trim().toLowerCase();
+  const street = body.street!.trim();
+  const houseNumber = body.houseNumber!.trim();
+  const postalCode = body.postalCode!.trim();
+  const city = body.city!.trim();
+  const country = body.country!.trim();
+  const guests = body.guests!;
   const hasPet = Boolean(body.hasPet);
   const newsletterOptIn = Boolean(body.newsletterOptIn);
   const laundryPackages = Math.max(0, Number(body.laundryPackages ?? 0));

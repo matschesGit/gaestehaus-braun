@@ -25,7 +25,7 @@ type GenericInvoiceMailInput = {
 
 type MailResult = {
   sent: boolean;
-  reason?: string;
+  reason: string | null;
 };
 
 type PaymentConfirmationMailInput = {
@@ -121,7 +121,7 @@ export async function sendInvoiceEmail(input: GenericInvoiceMailInput): Promise<
       ],
     });
 
-    return { sent: true };
+    return { sent: true, reason: null };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unbekannter SMTP-Fehler";
     return { sent: false, reason: `E-Mail-Versand fehlgeschlagen: ${message}` };
@@ -166,7 +166,7 @@ export async function sendPaymentConfirmationEmail(input: PaymentConfirmationMai
       html,
     });
 
-    return { sent: true };
+    return { sent: true, reason: null };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unbekannter SMTP-Fehler";
     return { sent: false, reason: `E-Mail-Versand fehlgeschlagen: ${message}` };
@@ -210,7 +210,7 @@ export async function sendCancellationEmail(input: CancellationMailInput): Promi
       html,
     });
 
-    return { sent: true };
+    return { sent: true, reason: null };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unbekannter SMTP-Fehler";
     return { sent: false, reason: `E-Mail-Versand fehlgeschlagen: ${message}` };

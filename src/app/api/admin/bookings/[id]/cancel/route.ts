@@ -74,7 +74,7 @@ export async function POST(
   let emailResult = { sent: false, reason: null as string | null };
 
   if (sendEmail) {
-    emailResult = await sendCancellationEmail({
+    const result = await sendCancellationEmail({
       to: booking.customer.email,
       customerName: `${booking.customer.firstName} ${booking.customer.lastName}`,
       invoiceNumber: booking.invoice.invoiceNumber,
@@ -84,6 +84,10 @@ export async function POST(
       refundAmountCents,
       currency: booking.invoice.currency,
     });
+    emailResult = {
+      sent: result.sent,
+      reason: result.reason ?? null,
+    };
   }
 
   return Response.json({
