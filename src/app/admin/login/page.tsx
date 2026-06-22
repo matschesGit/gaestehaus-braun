@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 
 export default function AdminLoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -26,7 +25,7 @@ export default function AdminLoginPage() {
         setError(data.error ?? "Anmeldung fehlgeschlagen.");
         return;
       }
-      router.push("/admin");
+      window.location.assign("/admin");
     } catch {
       setError("Serverfehler. Bitte erneut versuchen.");
     } finally {
@@ -60,14 +59,52 @@ export default function AdminLoginPage() {
           </label>
           <label className="flex flex-col gap-1 text-sm text-stone-600">
             Passwort
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-              required
-              className="border border-stone-300 rounded-lg px-3 py-2 text-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                required
+                className="w-full border border-stone-300 rounded-lg px-3 py-2 pr-10 text-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-7 w-7 items-center justify-center rounded-md text-stone-500 hover:text-stone-700 hover:bg-stone-100"
+                aria-label={showPassword ? "Passwort verbergen" : "Passwort anzeigen"}
+              >
+                {showPassword ? (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    className="h-4 w-4"
+                    aria-hidden="true"
+                  >
+                    <path d="M3 3l18 18" />
+                    <path d="M10.6 10.6a2 2 0 102.8 2.8" />
+                    <path d="M9.9 5.2A10.8 10.8 0 0112 5c5.4 0 9 5.8 9 7s-1.1 3-3.1 4.7" />
+                    <path d="M6.2 6.2C3.8 8 3 10.2 3 12s3.6 7 9 7c1 0 2-.2 2.9-.5" />
+                  </svg>
+                ) : (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    className="h-4 w-4"
+                    aria-hidden="true"
+                  >
+                    <path d="M2.5 12s3.5-7 9.5-7 9.5 7 9.5 7-3.5 7-9.5 7-9.5-7-9.5-7z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                )}
+              </button>
+            </div>
           </label>
           <button
             type="submit"

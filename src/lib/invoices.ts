@@ -5,12 +5,16 @@ import {
   calculateBookingPrice,
   renderInvoiceHtml,
 } from "@/lib/billing";
+import { DEFAULT_BOOKING_PRICING_CONFIG, getBookingPricingConfig } from "@/lib/booking-pricing";
 
 type FullBooking = {
   id: string;
   checkIn: Date;
   checkOut: Date;
   guests: number;
+  extraGuests: number;
+  hasPet: boolean;
+  laundryPackages: number;
   notes: string | null;
   createdAt: Date;
   currency: string;
@@ -31,6 +35,11 @@ type FullBooking = {
     lastName: string;
     email: string;
     phone: string | null;
+    street: string | null;
+    houseNumber: string | null;
+    postalCode: string | null;
+    city: string | null;
+    country: string | null;
   };
 };
 
@@ -57,6 +66,9 @@ export async function createInvoiceForBooking(bookingId: string) {
       checkIn: true,
       checkOut: true,
       guests: true,
+      extraGuests: true,
+      hasPet: true,
+      laundryPackages: true,
       notes: true,
       createdAt: true,
       currency: true,
@@ -85,6 +97,11 @@ export async function createInvoiceForBooking(bookingId: string) {
           lastName: true,
           email: true,
           phone: true,
+          street: true,
+          houseNumber: true,
+          postalCode: true,
+          city: true,
+          country: true,
         },
       },
     },
@@ -98,6 +115,7 @@ export async function createInvoiceForBooking(bookingId: string) {
   }
 
   const typedBooking = booking as FullBooking;
+  const pricingConfig = (await getBookingPricingConfig()) ?? DEFAULT_BOOKING_PRICING_CONFIG;
 
   const pricing = calculateBookingPrice(
     {
@@ -108,6 +126,12 @@ export async function createInvoiceForBooking(bookingId: string) {
     },
     typedBooking.checkIn,
     typedBooking.checkOut,
+    {
+      guests: typedBooking.guests,
+      hasPet: typedBooking.hasPet,
+      laundryPackages: typedBooking.laundryPackages,
+    },
+    pricingConfig,
   );
 
   const invoice = await prisma.$transaction(async (tx) => {
@@ -118,7 +142,12 @@ export async function createInvoiceForBooking(bookingId: string) {
     });
 
     const invoiceNumber = buildInvoiceNumber(typedBooking.createdAt, yearlyCount + 1);
-    const schedule = buildPaymentSchedule(pricing.totalAmountCents, typedBooking.createdAt, typedBooking.checkIn);
+    const schedule = buildPaymentSchedule(
+      pricing.totalAmountCents,
+      typedBooking.createdAt,
+      typedBooking.checkIn,
+      typedBooking.checkOut,
+    );
 
     const documentHtml = renderInvoiceHtml({
       invoiceNumber,
@@ -128,14 +157,23 @@ export async function createInvoiceForBooking(bookingId: string) {
         lastName: typedBooking.customer.lastName,
         email: typedBooking.customer.email,
         phone: typedBooking.customer.phone,
+        street: typedBooking.customer.street,
+        houseNumber: typedBooking.customer.houseNumber,
+        postalCode: typedBooking.customer.postalCode,
+        city: typedBooking.customer.city,
+        country: typedBooking.customer.country,
       },
       booking: {
         id: typedBooking.id,
         checkIn: typedBooking.checkIn,
         checkOut: typedBooking.checkOut,
         guests: typedBooking.guests,
+        extraGuests: typedBooking.extraGuests,
+        hasPet: typedBooking.hasPet,
+        laundryPackages: typedBooking.laundryPackages,
         notes: typedBooking.notes,
       },
+      pricingConfig,
       pricing,
       schedule,
     });

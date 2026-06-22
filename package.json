@@ -7,12 +7,16 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "images:backfill": "node scripts/backfill-apartment-images.mjs",
+    "images:cleanup": "node scripts/cleanup-apartment-image-orphans.mjs",
+    "images:cleanup:apply": "node scripts/cleanup-apartment-image-orphans.mjs --apply",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "prisma:seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts"
   },
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
     "@prisma/client": "^6.11.1",
     "bcryptjs": "^3.0.3",
     "jose": "^6.2.3",
@@ -20,7 +24,8 @@
     "nodemailer": "^9.0.0",
     "pdf-lib": "^1.17.1",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "sharp": "^0.35.1"
   },
   "prisma": {
     "seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts"

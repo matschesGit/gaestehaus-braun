@@ -29,6 +29,7 @@ model Apartment {
   id             String           @id @default(cuid())
   title          String
   slug           String           @unique
+  shortDescription String         @default("")
   description    String
   maxGuests      Int
   bedrooms       Int              @default(1)
@@ -63,6 +64,11 @@ model Customer {
   lastName  String
   email     String    @unique
   phone     String?
+  street    String?
+  houseNumber String?
+  postalCode String?
+  city      String?
+  country   String?
   notes     String?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -76,9 +82,13 @@ model Booking {
   checkIn         DateTime
   checkOut        DateTime
   guests          Int
+  extraGuests     Int           @default(0)
+  hasPet          Boolean       @default(false)
+  laundryPackages Int           @default(0)
   status          BookingStatus @default(PENDING)
   totalPriceCents Int?
   currency        String        @default("EUR")
+  newsletterOptIn Boolean       @default(false)
   notes           String?
   internalNotes   String?
   createdAt       DateTime      @default(now())
@@ -90,6 +100,17 @@ model Booking {
   @@index([apartmentId, checkIn, checkOut])
   @@index([customerId])
   @@index([status])
+}
+
+model BookingPricingConfig {
+  id                        String   @id
+  extraGuestPerNightCents   Int      @default(1500)
+  petFeePerNightCents       Int      @default(1000)
+  laundryPackageFeeCents    Int      @default(1000)
+  touristTaxPerPersonPerNightCents Int @default(0)
+  cleaningFeeCents          Int      @default(0)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
 }
 
 model Invoice {

@@ -7,6 +7,14 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "images.unsplash.com",
       },
+      {
+        protocol: "https",
+        hostname: "www.gaestehaus-braun.de",
+      },
+      {
+        protocol: "https",
+        hostname: "gaestehaus-braun.de",
+      },
     ],
   },
 };

@@ -1,3 +1,5 @@
+import { DEFAULT_BOOKING_PRICING_CONFIG, type BookingPricingConfig } from "@/lib/booking-pricing";
+
 type RateLike = {
   name: string;
   startDate: Date;
@@ -10,6 +12,12 @@ type ApartmentPricingSource = {
   basePriceCents: number;
   currency: string;
   rates: RateLike[];
+};
+
+export type BookingExtras = {
+  guests: number;
+  hasPet: boolean;
+  laundryPackages: number;
 };
 
 export type InvoiceLineItem = {
@@ -26,6 +34,7 @@ export type BookingPricing = {
   currency: string;
   nights: number;
   lineItems: InvoiceLineItem[];
+  extrasAmountCents: number;
 };
 
 export type PaymentSchedule = {
@@ -35,6 +44,7 @@ export type PaymentSchedule = {
   totalAmountCents: number;
   depositAmountCents: number;
   balanceAmountCents: number;
+  fullPaymentRequired: boolean;
 };
 
 type InvoiceHtmlInput = {
@@ -45,14 +55,23 @@ type InvoiceHtmlInput = {
     lastName: string;
     email: string;
     phone: string | null;
+    street: string | null;
+    houseNumber: string | null;
+    postalCode: string | null;
+    city: string | null;
+    country: string | null;
   };
   booking: {
     id: string;
     checkIn: Date;
     checkOut: Date;
     guests: number;
+    extraGuests: number;
+    hasPet: boolean;
+    laundryPackages: number;
     notes: string | null;
   };
+  pricingConfig: BookingPricingConfig;
   pricing: BookingPricing;
   schedule: PaymentSchedule;
 };
@@ -97,9 +116,12 @@ export function calculateBookingPrice(
   apartment: ApartmentPricingSource,
   checkIn: Date,
   checkOut: Date,
+  extras: BookingExtras,
+  pricingConfig: BookingPricingConfig = DEFAULT_BOOKING_PRICING_CONFIG,
 ): BookingPricing {
   const start = startOfUtcDay(checkIn);
   const end = startOfUtcDay(checkOut);
+  const nights = countNights(checkIn, checkOut);
   const nightlyEntries: Array<{ date: Date; label: string; nightlyPriceCents: number }> = [];
 
   for (let cursor = new Date(start); cursor < end; cursor = addUtcDays(cursor, 1)) {
@@ -142,29 +164,42 @@ export function calculateBookingPrice(
   }
 
   const totalAmountCents = lineItems.reduce((sum, item) => sum + item.amountCents, 0);
+  const extraGuestCount = Math.max(0, extras.guests - 2);
+  const extrasAmountCents =
+    extraGuestCount * nights * pricingConfig.extraGuestPerNightCents +
+    (extras.hasPet ? nights * pricingConfig.petFeePerNightCents : 0) +
+    Math.max(0, extras.laundryPackages) * pricingConfig.laundryPackageFeeCents +
+    extras.guests * nights * pricingConfig.touristTaxPerPersonPerNightCents +
+    pricingConfig.cleaningFeeCents;
 
   return {
-    totalAmountCents,
+    totalAmountCents: totalAmountCents + extrasAmountCents,
     currency: apartment.currency,
-    nights: countNights(checkIn, checkOut),
+    nights,
     lineItems,
+    extrasAmountCents,
   };
 }
 
-export function buildPaymentSchedule(totalAmountCents: number, issueDate: Date, checkIn: Date): PaymentSchedule {
+export function buildPaymentSchedule(totalAmountCents: number, issueDate: Date, checkIn: Date, checkOut: Date): PaymentSchedule {
   const normalizedIssueDate = startOfUtcDay(issueDate);
+  const normalizedCheckIn = startOfUtcDay(checkIn);
+  const normalizedCheckOut = startOfUtcDay(checkOut);
   let depositDueDate = addUtcDays(normalizedIssueDate, 14);
-  let balanceDueDate = addUtcDays(startOfUtcDay(checkIn), -21);
+  let balanceDueDate = addUtcDays(normalizedCheckIn, -21);
+  let fullPaymentRequired = false;
 
-  if (balanceDueDate <= normalizedIssueDate) {
-    balanceDueDate = normalizedIssueDate;
-  }
-  if (depositDueDate > balanceDueDate) {
-    depositDueDate = balanceDueDate;
+  if (balanceDueDate <= normalizedIssueDate || depositDueDate > balanceDueDate) {
+    fullPaymentRequired = true;
+    const bookingWithinStay = normalizedIssueDate >= normalizedCheckIn && normalizedIssueDate <= normalizedCheckOut;
+    const fallbackDueDate = bookingWithinStay ? normalizedCheckOut : normalizedCheckIn;
+    const fullPaymentDueDate = fallbackDueDate > normalizedIssueDate ? fallbackDueDate : normalizedIssueDate;
+    depositDueDate = fullPaymentDueDate;
+    balanceDueDate = fullPaymentDueDate;
   }
 
-  const depositAmountCents = Math.round(totalAmountCents * 0.25);
-  const balanceAmountCents = totalAmountCents - depositAmountCents;
+  const depositAmountCents = fullPaymentRequired ? totalAmountCents : Math.round(totalAmountCents * 0.25);
+  const balanceAmountCents = fullPaymentRequired ? 0 : totalAmountCents - depositAmountCents;
 
   return {
     issueDate: normalizedIssueDate,
@@ -173,6 +208,7 @@ export function buildPaymentSchedule(totalAmountCents: number, issueDate: Date, 
     totalAmountCents,
     depositAmountCents,
     balanceAmountCents,
+    fullPaymentRequired,
   };
 }
 
@@ -200,9 +236,48 @@ export function renderInvoiceHtml(input: InvoiceHtmlInput) {
     )
     .join("");
 
+  const extrasRows = [
+    input.booking.extraGuests > 0
+      ? `<div style="display:flex;justify-content:space-between;margin-bottom:8px;color:#57534e;"><span>Zusatzpersonen (${input.booking.extraGuests} x ${input.pricing.nights} Nächte)</span><span>${formatMoney(input.booking.extraGuests * input.pricing.nights * input.pricingConfig.extraGuestPerNightCents, input.pricing.currency)}</span></div>`
+      : "",
+    input.booking.hasPet
+      ? `<div style="display:flex;justify-content:space-between;margin-bottom:8px;color:#57534e;"><span>Haustierpauschale (${input.pricing.nights} Nächte)</span><span>${formatMoney(input.pricing.nights * input.pricingConfig.petFeePerNightCents, input.pricing.currency)}</span></div>`
+      : "",
+    input.booking.laundryPackages > 0
+      ? `<div style="display:flex;justify-content:space-between;margin-bottom:8px;color:#57534e;"><span>Wäschepakete (${input.booking.laundryPackages})</span><span>${formatMoney(input.booking.laundryPackages * input.pricingConfig.laundryPackageFeeCents, input.pricing.currency)}</span></div>`
+      : "",
+    input.pricingConfig.touristTaxPerPersonPerNightCents > 0
+      ? `<div style="display:flex;justify-content:space-between;margin-bottom:8px;color:#57534e;"><span>Kurtaxe (${input.booking.guests} x ${input.pricing.nights} Nächte)</span><span>${formatMoney(input.booking.guests * input.pricing.nights * input.pricingConfig.touristTaxPerPersonPerNightCents, input.pricing.currency)}</span></div>`
+      : "",
+    input.pricingConfig.cleaningFeeCents > 0
+      ? `<div style="display:flex;justify-content:space-between;margin-bottom:8px;color:#57534e;"><span>Endreinigung</span><span>${formatMoney(input.pricingConfig.cleaningFeeCents, input.pricing.currency)}</span></div>`
+      : "",
+  ].join("");
+
+  const paymentTermsHtml = input.schedule.fullPaymentRequired
+    ? `
+      <p style="margin:0;color:#7c2d12;">Bitte begleichen Sie den Gesamtbetrag in Höhe von <strong>${formatMoney(input.schedule.totalAmountCents, input.pricing.currency)}</strong> bis spätestens <strong>${formatDate(input.schedule.depositDueDate)}</strong>.</p>
+      <p style="margin:8px 0 0;color:#7c2d12;">Aufgrund der kurzen Vorlaufzeit ist die vollständige Zahlung vor Anreise oder - bei sehr kurzfristiger Buchung - während des Aufenthalts erforderlich.</p>
+    `
+    : `
+      <p style="margin:0;color:#7c2d12;">Anzahlung in Höhe von 25% bis spätestens ${formatDate(input.schedule.depositDueDate)}.</p>
+      <p style="margin:8px 0 0;color:#7c2d12;">Restbetrag bis spätestens ${formatDate(input.schedule.balanceDueDate)}, also 3 Wochen vor Reiseantritt.</p>
+    `;
+
   const notes = input.booking.notes
     ? `<p style="margin:12px 0 0;color:#57534e;"><strong>Nachricht des Gastes:</strong> ${escapeHtml(input.booking.notes)}</p>`
     : "";
+
+  const addressParts = [
+    [input.customer.street, input.customer.houseNumber].filter(Boolean).join(" "),
+    [input.customer.postalCode, input.customer.city].filter(Boolean).join(" "),
+    input.customer.country ?? "",
+  ].filter(Boolean);
+
+  const customerAddressHtml =
+    addressParts.length > 0
+      ? `<p style="margin:0;color:#57534e;">${escapeHtml(addressParts.join(", "))}</p>`
+      : "";
 
   return `
     <section style="font-family:Arial, Helvetica, sans-serif;color:#1c1917;line-height:1.5;max-width:900px;margin:0 auto;">
@@ -222,6 +297,7 @@ export function renderInvoiceHtml(input: InvoiceHtmlInput) {
         <div style="background:#fafaf9;border:1px solid #e7e5e4;border-radius:16px;padding:16px;">
           <p style="margin:0 0 8px;font-size:12px;text-transform:uppercase;color:#a8a29e;">Rechnung an</p>
           <p style="margin:0;font-weight:600;">${escapeHtml(input.customer.firstName)} ${escapeHtml(input.customer.lastName)}</p>
+          ${customerAddressHtml}
           <p style="margin:0;color:#57534e;">${escapeHtml(input.customer.email)}</p>
           <p style="margin:0;color:#57534e;">${escapeHtml(input.customer.phone ?? "-")}</p>
         </div>
@@ -230,6 +306,11 @@ export function renderInvoiceHtml(input: InvoiceHtmlInput) {
           <p style="margin:0;color:#57534e;">Unterkunft: <strong style="color:#1c1917;">${escapeHtml(input.apartmentTitle)}</strong></p>
           <p style="margin:0;color:#57534e;">Reisezeitraum: <strong style="color:#1c1917;">${formatDate(input.booking.checkIn)} - ${formatDate(input.booking.checkOut)}</strong></p>
           <p style="margin:0;color:#57534e;">Gäste: <strong style="color:#1c1917;">${input.booking.guests}</strong></p>
+          <p style="margin:0;color:#57534e;">Zusatzpersonen: <strong style="color:#1c1917;">${input.booking.extraGuests}</strong></p>
+          <p style="margin:0;color:#57534e;">Haustier: <strong style="color:#1c1917;">${input.booking.hasPet ? "ja" : "nein"}</strong></p>
+          <p style="margin:0;color:#57534e;">Wäschepakete: <strong style="color:#1c1917;">${input.booking.laundryPackages}</strong></p>
+          <p style="margin:0;color:#57534e;">Kurtaxe: <strong style="color:#1c1917;">${formatMoney(input.booking.guests * input.pricing.nights * input.pricingConfig.touristTaxPerPersonPerNightCents, input.pricing.currency)}</strong></p>
+          <p style="margin:0;color:#57534e;">Endreinigung: <strong style="color:#1c1917;">${formatMoney(input.pricingConfig.cleaningFeeCents, input.pricing.currency)}</strong></p>
           <p style="margin:0;color:#57534e;">Buchungs-ID: <strong style="color:#1c1917;">${escapeHtml(input.booking.id)}</strong></p>
         </div>
       </div>
@@ -253,21 +334,18 @@ export function renderInvoiceHtml(input: InvoiceHtmlInput) {
             <span>Gesamtbetrag</span>
             <strong>${formatMoney(input.schedule.totalAmountCents, input.pricing.currency)}</strong>
           </div>
-          <div style="display:flex;justify-content:space-between;margin-bottom:8px;color:#57534e;">
-            <span>Anzahlung 25%</span>
-            <span>${formatMoney(input.schedule.depositAmountCents, input.pricing.currency)}</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;color:#57534e;">
-            <span>Restzahlung</span>
-            <span>${formatMoney(input.schedule.balanceAmountCents, input.pricing.currency)}</span>
-          </div>
+          ${extrasRows}
+          ${
+            input.schedule.fullPaymentRequired
+              ? `<div style="display:flex;justify-content:space-between;color:#57534e;"><span>Fälliger Gesamtbetrag</span><span>${formatMoney(input.schedule.totalAmountCents, input.pricing.currency)}</span></div>`
+              : `<div style="display:flex;justify-content:space-between;margin-bottom:8px;color:#57534e;"><span>Anzahlung 25%</span><span>${formatMoney(input.schedule.depositAmountCents, input.pricing.currency)}</span></div><div style="display:flex;justify-content:space-between;color:#57534e;"><span>Restzahlung</span><span>${formatMoney(input.schedule.balanceAmountCents, input.pricing.currency)}</span></div>`
+          }
         </div>
       </div>
 
       <div style="background:#fff7ed;border:1px solid #fdba74;border-radius:16px;padding:16px;margin-bottom:24px;">
         <p style="margin:0 0 8px;font-weight:600;">Zahlungsziel</p>
-        <p style="margin:0;color:#7c2d12;">Anzahlung in Höhe von 25% bis spätestens ${formatDate(input.schedule.depositDueDate)}.</p>
-        <p style="margin:8px 0 0;color:#7c2d12;">Restbetrag bis spätestens ${formatDate(input.schedule.balanceDueDate)}, also 3 Wochen vor Reiseantritt.</p>
+        ${paymentTermsHtml}
         <p style="margin:12px 0 0;color:#7c2d12;">IBAN: ${escapeHtml(issuerIban)}</p>
       </div>
 

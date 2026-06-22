@@ -1,0 +1,39 @@
+ M next.config.ts
+ M package-lock.json
+ M package.json
+ M prisma/schema.prisma
+ M prisma/seed.ts
+ M src/app/admin/bookings/BookingsTable.tsx
+ M src/app/admin/bookings/page.tsx
+ M src/app/admin/rates/page.tsx
+ M src/app/admin/rates/rates-client.tsx
+ M src/app/anfrage/AnfrageClient.tsx
+ M src/app/anfrage/page.tsx
+ M src/app/api/admin/bookings/route.ts
+ M src/app/api/public/apartments/route.ts
+ M src/app/api/public/booking-request/route.ts
+ M src/app/components/ApartmentCard.tsx
+ M src/app/components/BookingRequestForm.tsx
+ M src/app/globals.css
+ M src/app/layout.tsx
+ M src/app/page.tsx
+ M src/lib/api-client.ts
+ M src/lib/billing.ts
+ M src/lib/invoices.ts
+ M src/lib/types.ts
+?? .restore-points/
+?? prisma/migrations/20260617103000_add_booking_extras/
+?? prisma/migrations/20260617114201_add_customer_address_fields/
+?? prisma/migrations/20260617115000_add_booking_pricing_config/
+?? prisma/migrations/20260617122500_add_tourist_tax_and_cleaning/
+?? src/app/about/
+?? src/app/agb/
+?? src/app/api/admin/booking-pricing/
+?? src/app/api/public/availability-windows/
+?? src/app/components/ApartmentGallery.tsx
+?? src/app/components/ApartmentSlider.tsx
+?? src/app/components/Navigation.tsx
+?? src/app/home-client.tsx
+?? src/app/home-server.tsx
+?? src/app/impressum/
+?? src/lib/booking-pricing.ts

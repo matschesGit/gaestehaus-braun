@@ -9,6 +9,10 @@ type Booking = {
   checkIn: string;
   checkOut: string;
   guests: number;
+  extraGuests: number;
+  hasPet: boolean;
+  laundryPackages: number;
+  newsletterOptIn: boolean;
   notes: string | null;
   internalNotes: string | null;
   totalPriceCents: number | null;
@@ -65,6 +69,16 @@ function dateToInputValue(date: string | null) {
   return new Date(date).toISOString().slice(0, 10);
 }
 
+function isPaymentOutstanding(booking: Booking): boolean {
+  if (booking.status === "CANCELLED") return false;
+  if (!booking.invoice) return false;
+  return !booking.invoice.depositPaidAt || !booking.invoice.balancePaidAt;
+}
+
+function hasNewsletterOptIn(booking: Booking): boolean {
+  return booking.newsletterOptIn;
+}
+
 export default function BookingsTable({ initial }: { initial: Booking[] }) {
   const [bookings, setBookings] = useState<Booking[]>(initial);
   const [selected, setSelected] = useState<Booking | null>(null);
@@ -73,6 +87,10 @@ export default function BookingsTable({ initial }: { initial: Booking[] }) {
   const [success, setSuccess] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
   const [nextReminderDate, setNextReminderDate] = useState<string>("");
+  const [confirmDialog, setConfirmDialog] = useState<{
+    type: "payment" | "cancel";
+    paymentType?: "deposit" | "balance" | "full";
+  } | null>(null);
 
   function openDetails(booking: Booking) {
     setSelected(booking);
@@ -170,7 +188,102 @@ export default function BookingsTable({ initial }: { initial: Booking[] }) {
     }
   }
 
-  const filtered = filterStatus === "ALL" ? bookings : bookings.filter((b) => b.status === filterStatus);
+  async function confirmPayment(bookingId: string, paymentType: "deposit" | "balance" | "full", sendEmail: boolean) {
+    setSaving(true);
+    setError(null);
+    setSuccess(null);
+    setConfirmDialog(null);
+
+    try {
+      const res = await fetch(`/api/admin/bookings/${bookingId}/payment/confirm`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentType, sendEmail }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Fehler bei der Zahlungsbestätigung.");
+
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.id === bookingId && b.invoice
+            ? {
+                ...b,
+                invoice: {
+                  ...b.invoice,
+                  depositPaidAt: data.invoice.depositPaidAt,
+                  balancePaidAt: data.invoice.balancePaidAt,
+                },
+              }
+            : b,
+        ),
+      );
+
+      if (selected?.id === bookingId && selected.invoice) {
+        setSelected((prev) => {
+          if (!prev || !prev.invoice) return prev;
+          return {
+            ...prev,
+            invoice: {
+              ...prev.invoice,
+              depositPaidAt: data.invoice.depositPaidAt,
+              balancePaidAt: data.invoice.balancePaidAt,
+            },
+          };
+        });
+      }
+
+      const emailMsg = sendEmail ? " und Bestätigungs-Mail versendet" : "";
+      setSuccess(`Zahlung bestätigt${emailMsg}.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unbekannter Fehler.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function cancelBooking(bookingId: string, sendEmail: boolean) {
+    setSaving(true);
+    setError(null);
+    setSuccess(null);
+    setConfirmDialog(null);
+
+    try {
+      const res = await fetch(`/api/admin/bookings/${bookingId}/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sendEmail }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Fehler bei der Stornierung.");
+
+      setBookings((prev) =>
+        prev.map((b) => (b.id === bookingId ? { ...b, status: "CANCELLED" } : b)),
+      );
+
+      if (selected?.id === bookingId) {
+        setSelected((prev) => {
+          if (!prev) return prev;
+          return { ...prev, status: "CANCELLED" };
+        });
+      }
+
+      const emailMsg = sendEmail ? " und Stornierungsmitteilung versendet" : "";
+      setSuccess(`Buchung storniert${emailMsg}.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unbekannter Fehler.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const filtered =
+    filterStatus === "ALL"
+      ? bookings
+      : filterStatus === "PENDING_PAYMENT"
+        ? bookings.filter(isPaymentOutstanding)
+        : filterStatus === "NEWSLETTER_OPTIN"
+          ? bookings.filter(hasNewsletterOptIn)
+        : bookings.filter((b) => b.status === filterStatus);
 
   return (
     <div>
@@ -187,17 +300,24 @@ export default function BookingsTable({ initial }: { initial: Booking[] }) {
 
       {/* Filter */}
       <div className="flex flex-wrap gap-2 mb-4">
-        {["ALL", "PENDING", "CONFIRMED", "CANCELLED"].map((s) => (
+        {[
+          { key: "ALL", label: "Alle" },
+          { key: "PENDING", label: "Offen" },
+          { key: "PENDING_PAYMENT", label: "Zahlungen ausstehend" },
+          { key: "NEWSLETTER_OPTIN", label: "Newsletter" },
+          { key: "CONFIRMED", label: "Bestätigt" },
+          { key: "CANCELLED", label: "Storniert" },
+        ].map((f) => (
           <button
-            key={s}
-            onClick={() => setFilterStatus(s)}
+            key={f.key}
+            onClick={() => setFilterStatus(f.key)}
             className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-              filterStatus === s
+              filterStatus === f.key
                 ? "bg-stone-800 text-white"
                 : "bg-white text-stone-500 border border-stone-200 hover:border-stone-400"
             }`}
           >
-            {s === "ALL" ? "Alle" : STATUS_LABEL[s]}
+            {f.label}
           </button>
         ))}
       </div>
@@ -292,6 +412,15 @@ export default function BookingsTable({ initial }: { initial: Booking[] }) {
                     Abreise: <span className="text-stone-800">{new Date(selected.checkOut).toLocaleDateString("de-DE")}</span>
                   </p>
                   <p className="text-stone-500">Gäste: <span className="text-stone-800">{selected.guests}</span></p>
+                  <p className="text-stone-500">
+                    Zusatzpersonen: <span className="text-stone-800">{selected.extraGuests}</span>
+                  </p>
+                  <p className="text-stone-500">
+                    Haustier: <span className="text-stone-800">{selected.hasPet ? "ja" : "nein"}</span>
+                  </p>
+                  <p className="text-stone-500">
+                    Wäschepakete: <span className="text-stone-800">{selected.laundryPackages}</span>
+                  </p>
                 </div>
 
                 <div className="bg-stone-50 rounded-lg p-3">
@@ -309,6 +438,15 @@ export default function BookingsTable({ initial }: { initial: Booking[] }) {
                 <p className="text-stone-400 text-xs mb-1">Nachricht des Gastes</p>
                 <p className="text-stone-600 text-sm bg-stone-50 rounded-lg p-3 whitespace-pre-wrap">
                   {selected.notes || "-"}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-stone-400 text-xs mb-1">Newsletter</p>
+                <p className="text-stone-600 text-sm bg-stone-50 rounded-lg p-3">
+                  {selected.newsletterOptIn
+                    ? "Ja, Gast möchte über Angebote informiert werden."
+                    : "Nein, kein Newsletter-Opt-in."}
                 </p>
               </div>
 
@@ -343,33 +481,31 @@ export default function BookingsTable({ initial }: { initial: Booking[] }) {
                     <p className="text-stone-600">
                       Versandstatus: <span className="text-stone-800">{selected.invoice.emailSentAt ? `per E-Mail am ${new Date(selected.invoice.emailSentAt).toLocaleDateString("de-DE")}` : "noch nicht versendet"}</span>
                     </p>
-                    <div className="pt-2 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          updateBooking(selected.id, {
-                            markDepositPaid: !selected.invoice?.depositPaidAt,
-                          })
-                        }
-                        disabled={saving}
-                        className="px-3 py-1.5 rounded-full border border-stone-300 text-xs text-stone-700 hover:border-stone-500 disabled:opacity-60"
-                      >
-                        {selected.invoice.depositPaidAt ? "Anzahlung zurücksetzen" : "Anzahlung als bezahlt markieren"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          updateBooking(selected.id, {
-                            markBalancePaid: !selected.invoice?.balancePaidAt,
-                          })
-                        }
-                        disabled={saving}
-                        className="px-3 py-1.5 rounded-full border border-stone-300 text-xs text-stone-700 hover:border-stone-500 disabled:opacity-60"
-                      >
-                        {selected.invoice.balancePaidAt ? "Restzahlung zurücksetzen" : "Restzahlung als bezahlt markieren"}
-                      </button>
+
+                    {/* Payment Confirmation Buttons */}
+                    <div className="pt-3 border-t border-stone-200 space-y-2">
+                      {!selected.invoice.depositPaidAt && (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDialog({ type: "payment", paymentType: "deposit" })}
+                          disabled={saving}
+                          className="w-full px-3 py-1.5 rounded-full border border-green-300 text-xs text-green-800 bg-green-50 hover:border-green-500 disabled:opacity-60"
+                        >
+                          Anzahlung bestätigen
+                        </button>
+                      )}
+                      {selected.invoice.depositPaidAt && !selected.invoice.balancePaidAt && (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDialog({ type: "payment", paymentType: "balance" })}
+                          disabled={saving}
+                          className="w-full px-3 py-1.5 rounded-full border border-green-300 text-xs text-green-800 bg-green-50 hover:border-green-500 disabled:opacity-60"
+                        >
+                          Restzahlung bestätigen
+                        </button>
+                      )}
                     </div>
-                    <div className="pt-2 flex flex-wrap gap-2 items-center">
+                    <div className="pt-2 flex flex-wrap gap-2">
                       <button
                         type="button"
                         onClick={() => sendInvoice(selected.id, "invoice")}
@@ -384,7 +520,7 @@ export default function BookingsTable({ initial }: { initial: Booking[] }) {
                         disabled={saving}
                         className="px-3 py-1.5 rounded-full border border-rose-300 text-xs text-rose-800 hover:border-rose-500 disabled:opacity-60"
                       >
-                        Mahnung senden (Stufe +1)
+                        Mahnung senden
                       </button>
                     </div>
                     <div className="pt-2 flex flex-wrap gap-2 items-center">
@@ -470,10 +606,21 @@ export default function BookingsTable({ initial }: { initial: Booking[] }) {
                   className="border border-stone-300 rounded-lg px-3 py-2 text-sm text-stone-800 w-full focus:outline-none focus:ring-2 focus:ring-amber-400"
                 >
                   {Object.entries(STATUS_LABEL).map(([val, label]) => (
-                    <option key={val} value={val}>{label}</option>
+                    <option key={val} value={val}>
+                      {label}
+                    </option>
                   ))}
                 </select>
               </div>
+
+              <button
+                type="button"
+                onClick={() => setConfirmDialog({ type: "cancel" })}
+                disabled={saving || selected.status === "CANCELLED"}
+                className="w-full px-3 py-2 rounded-lg border border-red-300 text-xs text-red-800 bg-red-50 hover:border-red-500 disabled:opacity-60"
+              >
+                Buchung stornieren
+              </button>
 
               <div>
                 <label className="text-stone-400 text-xs block mb-1">Interne Notiz</label>
@@ -490,6 +637,97 @@ export default function BookingsTable({ initial }: { initial: Booking[] }) {
               </div>
 
               {saving && <p className="text-stone-400 text-xs">Wird gespeichert…</p>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Dialogs */}
+      {confirmDialog?.type === "payment" && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm">
+            <div className="px-6 py-4 border-b border-stone-100">
+              <h3 className="font-semibold text-stone-800">Zahlung bestätigen</h3>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              <p className="text-stone-600 text-sm">
+                Bestätigen Sie den Geldeingang und soll eine Zahlungsbestätigungs-Mail versendet werden?
+              </p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    confirmPayment(selected!.id, confirmDialog.paymentType!, false);
+                  }}
+                  disabled={saving}
+                  className="flex-1 px-3 py-2 rounded-lg border border-stone-300 text-sm text-stone-700 hover:border-stone-500 disabled:opacity-60"
+                >
+                  Nur speichern
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    confirmPayment(selected!.id, confirmDialog.paymentType!, true);
+                  }}
+                  disabled={saving}
+                  className="flex-1 px-3 py-2 rounded-lg bg-green-600 text-white text-sm hover:bg-green-700 disabled:opacity-60"
+                >
+                  Speichern + Mail
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDialog(null)}
+                  disabled={saving}
+                  className="flex-1 px-3 py-2 rounded-lg border border-stone-300 text-sm text-stone-700 hover:border-stone-500 disabled:opacity-60"
+                >
+                  Abbrechen
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmDialog?.type === "cancel" && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm">
+            <div className="px-6 py-4 border-b border-stone-100">
+              <h3 className="font-semibold text-stone-800">Buchung stornieren</h3>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              <p className="text-stone-600 text-sm">
+                Bestätigen Sie die Stornierung und soll eine Stornierungsmitteilung an den Gast versendet werden?
+              </p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    cancelBooking(selected!.id, false);
+                  }}
+                  disabled={saving}
+                  className="flex-1 px-3 py-2 rounded-lg border border-stone-300 text-sm text-stone-700 hover:border-stone-500 disabled:opacity-60"
+                >
+                  Nur stornieren
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    cancelBooking(selected!.id, true);
+                  }}
+                  disabled={saving}
+                  className="flex-1 px-3 py-2 rounded-lg bg-red-600 text-white text-sm hover:bg-red-700 disabled:opacity-60"
+                >
+                  Stornieren + Mail
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDialog(null)}
+                  disabled={saving}
+                  className="flex-1 px-3 py-2 rounded-lg border border-stone-300 text-sm text-stone-700 hover:border-stone-500 disabled:opacity-60"
+                >
+                  Abbrechen
+                </button>
+              </div>
             </div>
           </div>
         </div>

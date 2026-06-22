@@ -1,4 +1,4 @@
-import type { Apartment, AvailabilityResult, BookingRequestPayload } from "@/lib/types";
+import type { Apartment, AvailabilityResult, AvailabilityWindow, BookingRequestPayload } from "@/lib/types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
 
@@ -24,6 +24,16 @@ export async function checkAvailability(
   return res.json();
 }
 
+export async function fetchAvailabilityWindows(apartmentId: string): Promise<AvailabilityWindow[]> {
+  const params = new URLSearchParams({ apartmentId });
+  const res = await fetch(`${BASE_URL}/api/public/availability-windows?${params}`, {
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error("Failed to load availability windows");
+  const data = (await res.json()) as { windows?: AvailabilityWindow[] };
+  return data.windows ?? [];
+}
+
 export async function submitBookingRequest(
   payload: BookingRequestPayload,
 ): Promise<{ booking: { id: string } }> {
@@ -33,6 +43,11 @@ export async function submitBookingRequest(
     body: JSON.stringify(payload),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error ?? "Failed to submit booking request");
+  if (!res.ok) {
+    if (Array.isArray(data.errors) && data.errors.length > 0) {
+      throw new Error(`Bitte korrigieren:\n- ${data.errors.join("\n- ")}`);
+    }
+    throw new Error(data.error ?? "Failed to submit booking request");
+  }
   return data;
 }

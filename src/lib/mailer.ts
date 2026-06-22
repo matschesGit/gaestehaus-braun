@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { buildInvoicePdf, type InvoicePdfData } from "@/lib/invoice-pdf";
 
 type BookingInvoiceMailInput = {
   to: string;
@@ -7,6 +8,7 @@ type BookingInvoiceMailInput = {
   invoiceNumber: string;
   bookingId: string;
   invoiceHtml: string;
+  invoicePdf: InvoicePdfData;
 };
 
 type GenericInvoiceMailInput = {
@@ -16,6 +18,7 @@ type GenericInvoiceMailInput = {
   invoiceNumber: string;
   bookingId: string;
   invoiceHtml: string;
+  invoicePdf: InvoicePdfData;
   kind: "invoice" | "reminder";
   reminderLevel?: number;
 };
@@ -23,6 +26,27 @@ type GenericInvoiceMailInput = {
 type MailResult = {
   sent: boolean;
   reason?: string;
+};
+
+type PaymentConfirmationMailInput = {
+  to: string;
+  customerName: string;
+  invoiceNumber: string;
+  apartmentTitle: string;
+  paymentType: "deposit" | "balance" | "full";
+  amountCents: number;
+  currency: string;
+};
+
+type CancellationMailInput = {
+  to: string;
+  customerName: string;
+  invoiceNumber: string;
+  apartmentTitle: string;
+  checkIn: string;
+  checkOut: string;
+  refundAmountCents: number;
+  currency: string;
 };
 
 function getMailConfig() {
@@ -69,6 +93,7 @@ export async function sendInvoiceEmail(input: GenericInvoiceMailInput): Promise<
       : `<p>Guten Tag ${input.customerName},</p><p>vielen Dank für Ihre Buchung der Unterkunft <strong>${input.apartmentTitle}</strong>.</p><p>Ihre Buchung wurde angelegt und die Rechnung ${input.invoiceNumber} ist unten sowie im Anhang enthalten.</p>`;
 
   try {
+    const pdfBytes = await buildInvoicePdf(input.invoicePdf);
     const transporter = nodemailer.createTransport({
       host: config.host,
       port: config.port,
@@ -89,11 +114,100 @@ export async function sendInvoiceEmail(input: GenericInvoiceMailInput): Promise<
       `,
       attachments: [
         {
-          filename: `${input.invoiceNumber}.html`,
-          content: `<!doctype html><html><body>${input.invoiceHtml}</body></html>`,
-          contentType: "text/html; charset=utf-8",
+          filename: `${input.invoiceNumber}.pdf`,
+          content: Buffer.from(pdfBytes),
+          contentType: "application/pdf",
         },
       ],
+    });
+
+    return { sent: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unbekannter SMTP-Fehler";
+    return { sent: false, reason: `E-Mail-Versand fehlgeschlagen: ${message}` };
+  }
+}
+
+export async function sendPaymentConfirmationEmail(input: PaymentConfirmationMailInput): Promise<MailResult> {
+  const config = getMailConfig();
+  if (!config) {
+    return { sent: false, reason: "SMTP nicht konfiguriert." };
+  }
+
+  const typeLabel = input.paymentType === "deposit" ? "Anzahlung" : input.paymentType === "balance" ? "Restzahlung" : "Vollzahlung";
+  const subject = `Zahlungsbestätigung ${input.invoiceNumber} - ${typeLabel}`;
+
+  try {
+    const transporter = nodemailer.createTransport({
+      host: config.host,
+      port: config.port,
+      secure: config.secure,
+      auth: config.auth,
+    });
+
+    const html = `
+      <div style="font-family:Arial, Helvetica, sans-serif;line-height:1.6;color:#1c1917;">
+        <p>Guten Tag ${input.customerName},</p>
+        <p>wir bestätigen den Geldeingang Ihrer ${typeLabel} in Höhe von <strong>${new Intl.NumberFormat("de-DE", { style: "currency", currency: input.currency }).format(input.amountCents / 100)}</strong> für Ihre Buchung.</p>
+        <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:16px;margin:16px 0;">
+          <p style="margin:0;color:#166534;"><strong>Rechnung:</strong> ${input.invoiceNumber}</p>
+          <p style="margin:8px 0 0;color:#166534;"><strong>Unterkunft:</strong> ${input.apartmentTitle}</p>
+          <p style="margin:8px 0 0;color:#166534;"><strong>Betrag:</strong> ${new Intl.NumberFormat("de-DE", { style: "currency", currency: input.currency }).format(input.amountCents / 100)}</p>
+        </div>
+        <p>Vielen Dank für Ihren Geldeingang.</p>
+        <p style="margin-top:24px;color:#78716c;font-size:12px;">Freundliche Grüße,<br/>Ihr Gästehaus Braun</p>
+      </div>
+    `;
+
+    await transporter.sendMail({
+      from: config.from,
+      to: input.to,
+      subject,
+      html,
+    });
+
+    return { sent: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unbekannter SMTP-Fehler";
+    return { sent: false, reason: `E-Mail-Versand fehlgeschlagen: ${message}` };
+  }
+}
+
+export async function sendCancellationEmail(input: CancellationMailInput): Promise<MailResult> {
+  const config = getMailConfig();
+  if (!config) {
+    return { sent: false, reason: "SMTP nicht konfiguriert." };
+  }
+
+  const subject = `Stornierungsbestätigung - ${input.invoiceNumber}`;
+
+  try {
+    const transporter = nodemailer.createTransport({
+      host: config.host,
+      port: config.port,
+      secure: config.secure,
+      auth: config.auth,
+    });
+
+    const html = `
+      <div style="font-family:Arial, Helvetica, sans-serif;line-height:1.6;color:#1c1917;">
+        <p>Guten Tag ${input.customerName},</p>
+        <p>wir bestätigen die Stornierung Ihrer Buchung für die Unterkunft <strong>${input.apartmentTitle}</strong>.</p>
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;margin:16px 0;">
+          <p style="margin:0;color:#7f1d1d;"><strong>Rechnung:</strong> ${input.invoiceNumber}</p>
+          <p style="margin:8px 0 0;color:#7f1d1d;"><strong>Reisezeitraum:</strong> ${new Date(input.checkIn).toLocaleDateString("de-DE")} - ${new Date(input.checkOut).toLocaleDateString("de-DE")}</p>
+          <p style="margin:8px 0 0;color:#7f1d1d;"><strong>Rückerstattung:</strong> ${new Intl.NumberFormat("de-DE", { style: "currency", currency: input.currency }).format(input.refundAmountCents / 100)}</p>
+        </div>
+        <p>Die Rückerstattung wird zeitnah auf Ihr Konto überwiesen.</p>
+        <p style="margin-top:24px;color:#78716c;font-size:12px;">Freundliche Grüße,<br/>Ihr Gästehaus Braun</p>
+      </div>
+    `;
+
+    await transporter.sendMail({
+      from: config.from,
+      to: input.to,
+      subject,
+      html,
     });
 
     return { sent: true };

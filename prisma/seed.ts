@@ -13,7 +13,7 @@ async function main() {
       title: "Ferienwohnung Alpenblick",
       slug: "alpenblick",
       description:
-        "Gemütliche Ferienwohnung mit herrlichem Ausblick auf die Berge. Ideal für Paare und kleine Familien. Komplett ausgestattet mit moderner Küche, gemütlichem Wohnzimmer und einer sonnigen Terrasse.",
+        "Zur Gartenseite gelegen, mit stufenlosem separaten Eingang und überdachter Terrasse an der Liegewiese. Die Wohnung (ca. 56 m²) bietet Schlafzimmer, Duschbad, Wohnbereich mit integrierter Essecke und eine separate Küche. Eine zusätzliche Schlafmöglichkeit bietet die Schlafcouch im Wohnbereich.",
       maxGuests: 4,
       bedrooms: 2,
       bathrooms: 1,
@@ -24,13 +24,13 @@ async function main() {
       photos: {
         create: [
           {
-            url: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800",
-            alt: "Bergblick Terrasse",
+            url: "https://www.gaestehaus-braun.de/.cm4all/uproc.php/0/Designvorlage/App1/.App1-Terrasse-001.jpg/picture-800?_=1872ccb0f70",
+            alt: "Ferienwohnung Alpenblick Terrasse",
             sortOrder: 0,
           },
           {
-            url: "https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=800",
-            alt: "Gemütliches Wohnzimmer",
+            url: "https://www.gaestehaus-braun.de/.cm4all/uproc.php/0/Designvorlage/App1/.Wohnzimmer.jpg/picture-800?_=1872ccb07a0",
+            alt: "Ferienwohnung Alpenblick Wohnzimmer",
             sortOrder: 1,
           },
         ],
@@ -66,7 +66,7 @@ async function main() {
       title: "Landhaus Sonnenschein",
       slug: "sonnenschein",
       description:
-        "Großzügiges Landhaus mit eigenem Garten, perfekt für Familien und Gruppen. Stilvolle Einrichtung, voll ausgestattete Küche, Grillplatz und Parkplatz direkt am Haus.",
+        "Diese Wohnung (ca. 56 m²) verfügt über eine große Südterrasse über die gesamte Hausbreite mit Blick in den Vorgarten. Die großzügige Aufteilung verbindet Komfort und Gemütlichkeit: Wohnzimmer mit Schlafcouch, Essplatz, separate Küche mit Spülmaschine und Mikrowelle, Schlafzimmer sowie ein modernes Bad mit zwei Waschbecken und begehbarer Dusche.",
       maxGuests: 6,
       bedrooms: 3,
       bathrooms: 2,
@@ -77,13 +77,13 @@ async function main() {
       photos: {
         create: [
           {
-            url: "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800",
-            alt: "Landhaus Außenansicht",
+            url: "https://www.gaestehaus-braun.de/.cm4all/uproc.php/0/Designvorlage/App2/.App2-Terrasse-5367.jpg/picture-800?_=1872d71fdd0",
+            alt: "Landhaus Sonnenschein Terrasse",
             sortOrder: 0,
           },
           {
-            url: "https://images.unsplash.com/photo-1583608205776-bfd35f0d9f83?w=800",
-            alt: "Garten mit Grillplatz",
+            url: "https://www.gaestehaus-braun.de/.cm4all/uproc.php/0/Designvorlage/App2/.Wohnzimmer.jpg/picture-800?_=1872d71f218",
+            alt: "Landhaus Sonnenschein Wohnzimmer",
             sortOrder: 1,
           },
         ],

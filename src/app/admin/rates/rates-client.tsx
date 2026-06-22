@@ -1,5 +1,6 @@
 "use client";
 
+import type { BookingPricingConfig } from "@/lib/types";
 import { useMemo, useState } from "react";
 
 type Apartment = { id: string; title: string };
@@ -19,11 +20,28 @@ function formatMoney(cents: number) {
   return new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(cents / 100);
 }
 
-export default function RatesClient({ apartments, initialRates }: { apartments: Apartment[]; initialRates: Rate[] }) {
+export default function RatesClient({
+  apartments,
+  initialRates,
+  initialPricingConfig,
+}: {
+  apartments: Apartment[];
+  initialRates: Rate[];
+  initialPricingConfig: BookingPricingConfig;
+}) {
   const [rates, setRates] = useState(initialRates);
+  const [pricingConfig, setPricingConfig] = useState(initialPricingConfig);
+  const [configDraft, setConfigDraft] = useState({
+    extraGuestPerNightEuro: ((initialPricingConfig.extraGuestPerNightCents ?? 0) / 100).toFixed(2),
+    petFeePerNightEuro: ((initialPricingConfig.petFeePerNightCents ?? 0) / 100).toFixed(2),
+    laundryPackageFeeEuro: ((initialPricingConfig.laundryPackageFeeCents ?? 0) / 100).toFixed(2),
+    touristTaxPerPersonPerNightEuro: ((initialPricingConfig.touristTaxPerPersonPerNightCents ?? 0) / 100).toFixed(2),
+    cleaningFeeEuro: ((initialPricingConfig.cleaningFeeCents ?? 0) / 100).toFixed(2),
+  });
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [savingConfig, setSavingConfig] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<{
     name: string;
@@ -45,6 +63,42 @@ export default function RatesClient({ apartments, initialRates }: { apartments: 
   const grouped = useMemo(() => {
     return [...rates].sort((a, b) => a.startDate.localeCompare(b.startDate));
   }, [rates]);
+
+  async function savePricingConfig(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingConfig(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const res = await fetch("/api/admin/booking-pricing", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          extraGuestPerNightCents: Math.round(Number(configDraft.extraGuestPerNightEuro || "0") * 100),
+          petFeePerNightCents: Math.round(Number(configDraft.petFeePerNightEuro || "0") * 100),
+          laundryPackageFeeCents: Math.round(Number(configDraft.laundryPackageFeeEuro || "0") * 100),
+          touristTaxPerPersonPerNightCents: Math.round(Number(configDraft.touristTaxPerPersonPerNightEuro || "0") * 100),
+          cleaningFeeCents: Math.round(Number(configDraft.cleaningFeeEuro || "0") * 100),
+        }),
+      });
+      const data = await res.json().catch(() => ({} as { error?: string; pricingConfig?: BookingPricingConfig }));
+      if (!res.ok) throw new Error(data.error ?? "Preise konnten nicht gespeichert werden.");
+
+      setPricingConfig(data.pricingConfig);
+      setConfigDraft({
+        extraGuestPerNightEuro: ((data.pricingConfig?.extraGuestPerNightCents ?? 0) / 100).toFixed(2),
+        petFeePerNightEuro: ((data.pricingConfig?.petFeePerNightCents ?? 0) / 100).toFixed(2),
+        laundryPackageFeeEuro: ((data.pricingConfig?.laundryPackageFeeCents ?? 0) / 100).toFixed(2),
+        touristTaxPerPersonPerNightEuro: ((data.pricingConfig?.touristTaxPerPersonPerNightCents ?? 0) / 100).toFixed(2),
+        cleaningFeeEuro: ((data.pricingConfig?.cleaningFeeCents ?? 0) / 100).toFixed(2),
+      });
+      setSuccess("Zusatzpreise wurden gespeichert.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unbekannter Fehler.");
+    } finally {
+      setSavingConfig(false);
+    }
+  }
 
   async function createRate(e: React.FormEvent) {
     e.preventDefault();
@@ -172,6 +226,85 @@ export default function RatesClient({ apartments, initialRates }: { apartments: 
     <div className="space-y-6">
       {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-3 text-sm">{error}</div>}
       {success && <div className="bg-green-50 border border-green-200 text-green-700 rounded-xl p-3 text-sm">{success}</div>}
+
+      <section className="bg-white rounded-2xl shadow p-5 space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-stone-800">Zusatzpreise</h2>
+            <p className="text-sm text-stone-500">Diese Werte gelten für die Buchung von zusätzlichen Personen, Haustieren und Wäschepaketen.</p>
+          </div>
+          <span className="text-xs font-medium rounded-full bg-stone-100 px-3 py-1 text-stone-600">Global</span>
+        </div>
+
+        <form onSubmit={savePricingConfig} className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <label className="flex flex-col gap-1 text-sm text-stone-600">
+            Zusätzliche Person pro Nacht
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={configDraft.extraGuestPerNightEuro}
+              onChange={(e) => setConfigDraft((prev) => ({ ...prev, extraGuestPerNightEuro: e.target.value }))}
+              className="border border-stone-300 rounded-lg px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm text-stone-600">
+            Haustier pro Nacht
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={configDraft.petFeePerNightEuro}
+              onChange={(e) => setConfigDraft((prev) => ({ ...prev, petFeePerNightEuro: e.target.value }))}
+              className="border border-stone-300 rounded-lg px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm text-stone-600">
+            Wäschepaket pro Paket
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={configDraft.laundryPackageFeeEuro}
+              onChange={(e) => setConfigDraft((prev) => ({ ...prev, laundryPackageFeeEuro: e.target.value }))}
+              className="border border-stone-300 rounded-lg px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm text-stone-600">
+            Kurtaxe pro Person/Nacht
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={configDraft.touristTaxPerPersonPerNightEuro}
+              onChange={(e) => setConfigDraft((prev) => ({ ...prev, touristTaxPerPersonPerNightEuro: e.target.value }))}
+              className="border border-stone-300 rounded-lg px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm text-stone-600">
+            Endreinigung
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={configDraft.cleaningFeeEuro}
+              onChange={(e) => setConfigDraft((prev) => ({ ...prev, cleaningFeeEuro: e.target.value }))}
+              className="border border-stone-300 rounded-lg px-3 py-2 text-sm"
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={savingConfig}
+            className="self-end bg-stone-800 text-white rounded-lg px-3 py-2 text-sm hover:bg-stone-700 disabled:opacity-50"
+          >
+            {savingConfig ? "Speichere…" : "Zusatzpreise speichern"}
+          </button>
+        </form>
+
+        <p className="text-xs text-stone-500">
+          Aktuell: {formatMoney(pricingConfig.extraGuestPerNightCents ?? 0)} pro zusätzlicher Person und Nacht, {formatMoney(pricingConfig.petFeePerNightCents ?? 0)} pro Haustier und Nacht, {formatMoney(pricingConfig.laundryPackageFeeCents ?? 0)} pro Wäschepaket, {formatMoney(pricingConfig.touristTaxPerPersonPerNightCents ?? 0)} Kurtaxe pro Person und Nacht, {formatMoney(pricingConfig.cleaningFeeCents ?? 0)} Endreinigung.
+        </p>
+      </section>
 
       <form onSubmit={createRate} className="bg-white rounded-2xl shadow p-5 grid grid-cols-1 md:grid-cols-6 gap-3">
         <select className="border border-stone-300 rounded-lg px-3 py-2 text-sm" value={form.apartmentId} onChange={(e) => setForm((p) => ({ ...p, apartmentId: e.target.value }))}>

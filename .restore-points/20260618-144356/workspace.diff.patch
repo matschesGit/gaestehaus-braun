@@ -1,0 +1,2047 @@
+diff --git a/next.config.ts b/next.config.ts
+index a9194aa..185a0b5 100644
+--- a/next.config.ts
++++ b/next.config.ts
+@@ -7,6 +7,14 @@ const nextConfig: NextConfig = {
+         protocol: "https",
+         hostname: "images.unsplash.com",
+       },
++      {
++        protocol: "https",
++        hostname: "www.gaestehaus-braun.de",
++      },
++      {
++        protocol: "https",
++        hostname: "gaestehaus-braun.de",
++      },
+     ],
+   },
+ };
+diff --git a/package-lock.json b/package-lock.json
+index f1d1c79..615267d 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -8,6 +8,7 @@
+       "name": "webapp_gaestehaus",
+       "version": "0.1.0",
+       "dependencies": {
++        "@heroicons/react": "^2.2.0",
+         "@prisma/client": "^6.11.1",
+         "bcryptjs": "^3.0.3",
+         "jose": "^6.2.3",
+@@ -487,6 +488,15 @@
+         "node": "^18.18.0 || ^20.9.0 || >=21.1.0"
+       }
+     },
++    "node_modules/@heroicons/react": {
++      "version": "2.2.0",
++      "resolved": "https://registry.npmjs.org/@heroicons/react/-/react-2.2.0.tgz",
++      "integrity": "sha512-LMcepvRaS9LYHJGsF0zzmgKCUim/X3N/DQKc4jepAXJ7l8QxJ1PmxJzqplF2Z3FE4PqBAIGyJAQ/w4B5dsqbtQ==",
++      "license": "MIT",
++      "peerDependencies": {
++        "react": ">= 16 || ^19.0.0-rc"
++      }
++    },
+     "node_modules/@humanfs/core": {
+       "version": "0.19.2",
+       "resolved": "https://registry.npmjs.org/@humanfs/core/-/core-0.19.2.tgz",
+diff --git a/package.json b/package.json
+index 21901df..d254f04 100644
+--- a/package.json
++++ b/package.json
+@@ -13,6 +13,7 @@
+     "prisma:seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts"
+   },
+   "dependencies": {
++    "@heroicons/react": "^2.2.0",
+     "@prisma/client": "^6.11.1",
+     "bcryptjs": "^3.0.3",
+     "jose": "^6.2.3",
+diff --git a/prisma/schema.prisma b/prisma/schema.prisma
+index 61de827..9ca97f3 100644
+--- a/prisma/schema.prisma
++++ b/prisma/schema.prisma
+@@ -63,6 +63,11 @@ model Customer {
+   lastName  String
+   email     String    @unique
+   phone     String?
++  street    String?
++  houseNumber String?
++  postalCode String?
++  city      String?
++  country   String?
+   notes     String?
+   createdAt DateTime  @default(now())
+   updatedAt DateTime  @updatedAt
+@@ -76,6 +81,9 @@ model Booking {
+   checkIn         DateTime
+   checkOut        DateTime
+   guests          Int
++  extraGuests     Int           @default(0)
++  hasPet          Boolean       @default(false)
++  laundryPackages Int           @default(0)
+   status          BookingStatus @default(PENDING)
+   totalPriceCents Int?
+   currency        String        @default("EUR")
+@@ -92,6 +100,17 @@ model Booking {
+   @@index([status])
+ }
+ 
++model BookingPricingConfig {
++  id                        String   @id
++  extraGuestPerNightCents   Int      @default(1500)
++  petFeePerNightCents       Int      @default(1000)
++  laundryPackageFeeCents    Int      @default(1000)
++  touristTaxPerPersonPerNightCents Int @default(0)
++  cleaningFeeCents          Int      @default(0)
++  createdAt                 DateTime @default(now())
++  updatedAt                 DateTime @updatedAt
++}
++
+ model Invoice {
+   id                 String   @id @default(cuid())
+   bookingId          String   @unique
+diff --git a/prisma/seed.ts b/prisma/seed.ts
+index 22ecab3..4101672 100644
+--- a/prisma/seed.ts
++++ b/prisma/seed.ts
+@@ -13,7 +13,7 @@ async function main() {
+       title: "Ferienwohnung Alpenblick",
+       slug: "alpenblick",
+       description:
+-        "Gemütliche Ferienwohnung mit herrlichem Ausblick auf die Berge. Ideal für Paare und kleine Familien. Komplett ausgestattet mit moderner Küche, gemütlichem Wohnzimmer und einer sonnigen Terrasse.",
++        "Zur Gartenseite gelegen, mit stufenlosem separaten Eingang und überdachter Terrasse an der Liegewiese. Die Wohnung (ca. 56 m²) bietet Schlafzimmer, Duschbad, Wohnbereich mit integrierter Essecke und eine separate Küche. Eine zusätzliche Schlafmöglichkeit bietet die Schlafcouch im Wohnbereich.",
+       maxGuests: 4,
+       bedrooms: 2,
+       bathrooms: 1,
+@@ -24,13 +24,13 @@ async function main() {
+       photos: {
+         create: [
+           {
+-            url: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800",
+-            alt: "Bergblick Terrasse",
++            url: "https://www.gaestehaus-braun.de/.cm4all/uproc.php/0/Designvorlage/App1/.App1-Terrasse-001.jpg/picture-800?_=1872ccb0f70",
++            alt: "Ferienwohnung Alpenblick Terrasse",
+             sortOrder: 0,
+           },
+           {
+-            url: "https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=800",
+-            alt: "Gemütliches Wohnzimmer",
++            url: "https://www.gaestehaus-braun.de/.cm4all/uproc.php/0/Designvorlage/App1/.Wohnzimmer.jpg/picture-800?_=1872ccb07a0",
++            alt: "Ferienwohnung Alpenblick Wohnzimmer",
+             sortOrder: 1,
+           },
+         ],
+@@ -66,7 +66,7 @@ async function main() {
+       title: "Landhaus Sonnenschein",
+       slug: "sonnenschein",
+       description:
+-        "Großzügiges Landhaus mit eigenem Garten, perfekt für Familien und Gruppen. Stilvolle Einrichtung, voll ausgestattete Küche, Grillplatz und Parkplatz direkt am Haus.",
++        "Diese Wohnung (ca. 56 m²) verfügt über eine große Südterrasse über die gesamte Hausbreite mit Blick in den Vorgarten. Die großzügige Aufteilung verbindet Komfort und Gemütlichkeit: Wohnzimmer mit Schlafcouch, Essplatz, separate Küche mit Spülmaschine und Mikrowelle, Schlafzimmer sowie ein modernes Bad mit zwei Waschbecken und begehbarer Dusche.",
+       maxGuests: 6,
+       bedrooms: 3,
+       bathrooms: 2,
+@@ -77,13 +77,13 @@ async function main() {
+       photos: {
+         create: [
+           {
+-            url: "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800",
+-            alt: "Landhaus Außenansicht",
++            url: "https://www.gaestehaus-braun.de/.cm4all/uproc.php/0/Designvorlage/App2/.App2-Terrasse-5367.jpg/picture-800?_=1872d71fdd0",
++            alt: "Landhaus Sonnenschein Terrasse",
+             sortOrder: 0,
+           },
+           {
+-            url: "https://images.unsplash.com/photo-1583608205776-bfd35f0d9f83?w=800",
+-            alt: "Garten mit Grillplatz",
++            url: "https://www.gaestehaus-braun.de/.cm4all/uproc.php/0/Designvorlage/App2/.Wohnzimmer.jpg/picture-800?_=1872d71f218",
++            alt: "Landhaus Sonnenschein Wohnzimmer",
+             sortOrder: 1,
+           },
+         ],
+diff --git a/src/app/admin/bookings/BookingsTable.tsx b/src/app/admin/bookings/BookingsTable.tsx
+index c8cc6ea..a162592 100644
+--- a/src/app/admin/bookings/BookingsTable.tsx
++++ b/src/app/admin/bookings/BookingsTable.tsx
+@@ -9,6 +9,9 @@ type Booking = {
+   checkIn: string;
+   checkOut: string;
+   guests: number;
++  extraGuests: number;
++  hasPet: boolean;
++  laundryPackages: number;
+   notes: string | null;
+   internalNotes: string | null;
+   totalPriceCents: number | null;
+@@ -292,6 +295,15 @@ export default function BookingsTable({ initial }: { initial: Booking[] }) {
+                     Abreise: <span className="text-stone-800">{new Date(selected.checkOut).toLocaleDateString("de-DE")}</span>
+                   </p>
+                   <p className="text-stone-500">Gäste: <span className="text-stone-800">{selected.guests}</span></p>
++                  <p className="text-stone-500">
++                    Zusatzpersonen: <span className="text-stone-800">{selected.extraGuests}</span>
++                  </p>
++                  <p className="text-stone-500">
++                    Haustier: <span className="text-stone-800">{selected.hasPet ? "ja" : "nein"}</span>
++                  </p>
++                  <p className="text-stone-500">
++                    Wäschepakete: <span className="text-stone-800">{selected.laundryPackages}</span>
++                  </p>
+                 </div>
+ 
+                 <div className="bg-stone-50 rounded-lg p-3">
+diff --git a/src/app/admin/bookings/page.tsx b/src/app/admin/bookings/page.tsx
+index 106f9a7..ae353ad 100644
+--- a/src/app/admin/bookings/page.tsx
++++ b/src/app/admin/bookings/page.tsx
+@@ -35,6 +35,9 @@ export default async function BookingsPage() {
+     checkIn: b.checkIn.toISOString(),
+     checkOut: b.checkOut.toISOString(),
+     guests: b.guests,
++    extraGuests: b.extraGuests,
++    hasPet: b.hasPet,
++    laundryPackages: b.laundryPackages,
+     notes: b.notes,
+     internalNotes: b.internalNotes,
+     totalPriceCents: b.totalPriceCents,
+diff --git a/src/app/admin/rates/page.tsx b/src/app/admin/rates/page.tsx
+index bf7dc9c..d8492a5 100644
+--- a/src/app/admin/rates/page.tsx
++++ b/src/app/admin/rates/page.tsx
+@@ -1,8 +1,9 @@
+ import { prisma } from "@/lib/prisma";
++import { DEFAULT_BOOKING_PRICING_CONFIG } from "@/lib/booking-pricing";
+ import RatesClient from "./rates-client";
+ 
+ export default async function RatesPage() {
+-  const [apartments, rates] = await Promise.all([
++  const [apartments, rates, bookingPricingConfig] = await Promise.all([
+     prisma.apartment.findMany({
+       where: { isActive: true },
+       orderBy: [{ sortOrder: "asc" }, { title: "asc" }],
+@@ -12,6 +13,9 @@ export default async function RatesPage() {
+       orderBy: [{ startDate: "asc" }],
+       include: { apartment: { select: { title: true } } },
+     }),
++    prisma.bookingPricingConfig.findUnique({
++      where: { id: DEFAULT_BOOKING_PRICING_CONFIG.id },
++    }),
+   ]);
+ 
+   const initialRates = rates.map((rate) => ({
+@@ -26,10 +30,12 @@ export default async function RatesPage() {
+     isActive: rate.isActive,
+   }));
+ 
++  const pricingConfig = bookingPricingConfig ?? DEFAULT_BOOKING_PRICING_CONFIG;
++
+   return (
+     <div className="max-w-6xl mx-auto">
+       <h1 className="text-2xl font-semibold text-stone-800 mb-6">Preise</h1>
+-      <RatesClient apartments={apartments} initialRates={initialRates} />
++      <RatesClient apartments={apartments} initialRates={initialRates} initialPricingConfig={pricingConfig} />
+     </div>
+   );
+ }
+diff --git a/src/app/admin/rates/rates-client.tsx b/src/app/admin/rates/rates-client.tsx
+index 38da285..65464d1 100644
+--- a/src/app/admin/rates/rates-client.tsx
++++ b/src/app/admin/rates/rates-client.tsx
+@@ -1,5 +1,6 @@
+ "use client";
+ 
++import type { BookingPricingConfig } from "@/lib/types";
+ import { useMemo, useState } from "react";
+ 
+ type Apartment = { id: string; title: string };
+@@ -19,11 +20,28 @@ function formatMoney(cents: number) {
+   return new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(cents / 100);
+ }
+ 
+-export default function RatesClient({ apartments, initialRates }: { apartments: Apartment[]; initialRates: Rate[] }) {
++export default function RatesClient({
++  apartments,
++  initialRates,
++  initialPricingConfig,
++}: {
++  apartments: Apartment[];
++  initialRates: Rate[];
++  initialPricingConfig: BookingPricingConfig;
++}) {
+   const [rates, setRates] = useState(initialRates);
++  const [pricingConfig, setPricingConfig] = useState(initialPricingConfig);
++  const [configDraft, setConfigDraft] = useState({
++    extraGuestPerNightEuro: ((initialPricingConfig.extraGuestPerNightCents ?? 0) / 100).toFixed(2),
++    petFeePerNightEuro: ((initialPricingConfig.petFeePerNightCents ?? 0) / 100).toFixed(2),
++    laundryPackageFeeEuro: ((initialPricingConfig.laundryPackageFeeCents ?? 0) / 100).toFixed(2),
++    touristTaxPerPersonPerNightEuro: ((initialPricingConfig.touristTaxPerPersonPerNightCents ?? 0) / 100).toFixed(2),
++    cleaningFeeEuro: ((initialPricingConfig.cleaningFeeCents ?? 0) / 100).toFixed(2),
++  });
+   const [error, setError] = useState<string | null>(null);
+   const [success, setSuccess] = useState<string | null>(null);
+   const [submitting, setSubmitting] = useState(false);
++  const [savingConfig, setSavingConfig] = useState(false);
+   const [editingId, setEditingId] = useState<string | null>(null);
+   const [editDraft, setEditDraft] = useState<{
+     name: string;
+@@ -46,6 +64,42 @@ export default function RatesClient({ apartments, initialRates }: { apartments:
+     return [...rates].sort((a, b) => a.startDate.localeCompare(b.startDate));
+   }, [rates]);
+ 
++  async function savePricingConfig(e: React.FormEvent) {
++    e.preventDefault();
++    setSavingConfig(true);
++    setError(null);
++    setSuccess(null);
++    try {
++      const res = await fetch("/api/admin/booking-pricing", {
++        method: "PATCH",
++        headers: { "Content-Type": "application/json" },
++        body: JSON.stringify({
++          extraGuestPerNightCents: Math.round(Number(configDraft.extraGuestPerNightEuro || "0") * 100),
++          petFeePerNightCents: Math.round(Number(configDraft.petFeePerNightEuro || "0") * 100),
++          laundryPackageFeeCents: Math.round(Number(configDraft.laundryPackageFeeEuro || "0") * 100),
++          touristTaxPerPersonPerNightCents: Math.round(Number(configDraft.touristTaxPerPersonPerNightEuro || "0") * 100),
++          cleaningFeeCents: Math.round(Number(configDraft.cleaningFeeEuro || "0") * 100),
++        }),
++      });
++      const data = await res.json().catch(() => ({} as { error?: string; pricingConfig?: BookingPricingConfig }));
++      if (!res.ok) throw new Error(data.error ?? "Preise konnten nicht gespeichert werden.");
++
++      setPricingConfig(data.pricingConfig);
++      setConfigDraft({
++        extraGuestPerNightEuro: ((data.pricingConfig?.extraGuestPerNightCents ?? 0) / 100).toFixed(2),
++        petFeePerNightEuro: ((data.pricingConfig?.petFeePerNightCents ?? 0) / 100).toFixed(2),
++        laundryPackageFeeEuro: ((data.pricingConfig?.laundryPackageFeeCents ?? 0) / 100).toFixed(2),
++        touristTaxPerPersonPerNightEuro: ((data.pricingConfig?.touristTaxPerPersonPerNightCents ?? 0) / 100).toFixed(2),
++        cleaningFeeEuro: ((data.pricingConfig?.cleaningFeeCents ?? 0) / 100).toFixed(2),
++      });
++      setSuccess("Zusatzpreise wurden gespeichert.");
++    } catch (err) {
++      setError(err instanceof Error ? err.message : "Unbekannter Fehler.");
++    } finally {
++      setSavingConfig(false);
++    }
++  }
++
+   async function createRate(e: React.FormEvent) {
+     e.preventDefault();
+     setSubmitting(true);
+@@ -173,6 +227,85 @@ export default function RatesClient({ apartments, initialRates }: { apartments:
+       {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-3 text-sm">{error}</div>}
+       {success && <div className="bg-green-50 border border-green-200 text-green-700 rounded-xl p-3 text-sm">{success}</div>}
+ 
++      <section className="bg-white rounded-2xl shadow p-5 space-y-4">
++        <div className="flex items-start justify-between gap-4">
++          <div>
++            <h2 className="text-lg font-semibold text-stone-800">Zusatzpreise</h2>
++            <p className="text-sm text-stone-500">Diese Werte gelten für die Buchung von zusätzlichen Personen, Haustieren und Wäschepaketen.</p>
++          </div>
++          <span className="text-xs font-medium rounded-full bg-stone-100 px-3 py-1 text-stone-600">Global</span>
++        </div>
++
++        <form onSubmit={savePricingConfig} className="grid grid-cols-1 md:grid-cols-4 gap-3">
++          <label className="flex flex-col gap-1 text-sm text-stone-600">
++            Zusätzliche Person pro Nacht
++            <input
++              type="number"
++              step="0.01"
++              min="0"
++              value={configDraft.extraGuestPerNightEuro}
++              onChange={(e) => setConfigDraft((prev) => ({ ...prev, extraGuestPerNightEuro: e.target.value }))}
++              className="border border-stone-300 rounded-lg px-3 py-2 text-sm"
++            />
++          </label>
++          <label className="flex flex-col gap-1 text-sm text-stone-600">
++            Haustier pro Nacht
++            <input
++              type="number"
++              step="0.01"
++              min="0"
++              value={configDraft.petFeePerNightEuro}
++              onChange={(e) => setConfigDraft((prev) => ({ ...prev, petFeePerNightEuro: e.target.value }))}
++              className="border border-stone-300 rounded-lg px-3 py-2 text-sm"
++            />
++          </label>
++          <label className="flex flex-col gap-1 text-sm text-stone-600">
++            Wäschepaket pro Paket
++            <input
++              type="number"
++              step="0.01"
++              min="0"
++              value={configDraft.laundryPackageFeeEuro}
++              onChange={(e) => setConfigDraft((prev) => ({ ...prev, laundryPackageFeeEuro: e.target.value }))}
++              className="border border-stone-300 rounded-lg px-3 py-2 text-sm"
++            />
++          </label>
++          <label className="flex flex-col gap-1 text-sm text-stone-600">
++            Kurtaxe pro Person/Nacht
++            <input
++              type="number"
++              step="0.01"
++              min="0"
++              value={configDraft.touristTaxPerPersonPerNightEuro}
++              onChange={(e) => setConfigDraft((prev) => ({ ...prev, touristTaxPerPersonPerNightEuro: e.target.value }))}
++              className="border border-stone-300 rounded-lg px-3 py-2 text-sm"
++            />
++          </label>
++          <label className="flex flex-col gap-1 text-sm text-stone-600">
++            Endreinigung
++            <input
++              type="number"
++              step="0.01"
++              min="0"
++              value={configDraft.cleaningFeeEuro}
++              onChange={(e) => setConfigDraft((prev) => ({ ...prev, cleaningFeeEuro: e.target.value }))}
++              className="border border-stone-300 rounded-lg px-3 py-2 text-sm"
++            />
++          </label>
++          <button
++            type="submit"
++            disabled={savingConfig}
++            className="self-end bg-stone-800 text-white rounded-lg px-3 py-2 text-sm hover:bg-stone-700 disabled:opacity-50"
++          >
++            {savingConfig ? "Speichere…" : "Zusatzpreise speichern"}
++          </button>
++        </form>
++
++        <p className="text-xs text-stone-500">
++          Aktuell: {formatMoney(pricingConfig.extraGuestPerNightCents ?? 0)} pro zusätzlicher Person und Nacht, {formatMoney(pricingConfig.petFeePerNightCents ?? 0)} pro Haustier und Nacht, {formatMoney(pricingConfig.laundryPackageFeeCents ?? 0)} pro Wäschepaket, {formatMoney(pricingConfig.touristTaxPerPersonPerNightCents ?? 0)} Kurtaxe pro Person und Nacht, {formatMoney(pricingConfig.cleaningFeeCents ?? 0)} Endreinigung.
++        </p>
++      </section>
++
+       <form onSubmit={createRate} className="bg-white rounded-2xl shadow p-5 grid grid-cols-1 md:grid-cols-6 gap-3">
+         <select className="border border-stone-300 rounded-lg px-3 py-2 text-sm" value={form.apartmentId} onChange={(e) => setForm((p) => ({ ...p, apartmentId: e.target.value }))}>
+           {apartments.map((a) => <option key={a.id} value={a.id}>{a.title}</option>)}
+diff --git a/src/app/anfrage/AnfrageClient.tsx b/src/app/anfrage/AnfrageClient.tsx
+index cf6e11d..0bd3ae6 100644
+--- a/src/app/anfrage/AnfrageClient.tsx
++++ b/src/app/anfrage/AnfrageClient.tsx
+@@ -1,13 +1,52 @@
+ "use client";
+ 
+ import { useSearchParams } from "next/navigation";
++import { useEffect, useState } from "react";
+ import BookingRequestForm from "../components/BookingRequestForm";
++import ApartmentSlider from "../components/ApartmentSlider";
+ import Link from "next/link";
+ 
++interface ApartmentData {
++  id: string;
++  title: string;
++  slug: string;
++  description: string;
++  photos: Array<{
++    id: string;
++    url: string;
++    alt: string;
++    sortOrder: number;
++  }>;
++}
++
+ export default function AnfrageClient() {
+   const params = useSearchParams();
+   const apartmentId = params.get("apartmentId");
+   const apartmentTitle = params.get("apartment") ?? "Unterkunft";
++  const [apartment, setApartment] = useState<ApartmentData | null>(null);
++  const [loading, setLoading] = useState(true);
++
++  useEffect(() => {
++    if (!apartmentId) {
++      setLoading(false);
++      return;
++    }
++
++    const fetchApartment = async () => {
++      try {
++        const response = await fetch(`/api/public/apartments?id=${apartmentId}`);
++        if (!response.ok) throw new Error("Failed to fetch apartment");
++        const data = await response.json();
++        setApartment(data);
++      } catch (error) {
++        console.error("Error fetching apartment:", error);
++      } finally {
++        setLoading(false);
++      }
++    };
++
++    fetchApartment();
++  }, [apartmentId]);
+ 
+   if (!apartmentId) {
+     return (
+@@ -20,5 +59,23 @@ export default function AnfrageClient() {
+     );
+   }
+ 
+-  return <BookingRequestForm apartmentId={apartmentId} apartmentTitle={apartmentTitle} />;
++  if (loading) {
++    return (
++      <div className="text-center py-16">
++        <p className="text-stone-400">Wird geladen…</p>
++      </div>
++    );
++  }
++
++  return (
++    <div className="max-w-6xl mx-auto">
++      {apartment && apartment.photos.length > 0 && (
++        <div className="mb-12">
++          <h2 className="text-2xl font-bold text-[#2f241d] mb-6">{apartment.title}</h2>
++          <ApartmentSlider photos={apartment.photos} title={apartment.title} />
++        </div>
++      )}
++      <BookingRequestForm apartmentId={apartmentId} apartmentTitle={apartmentTitle} />
++    </div>
++  );
+ }
+diff --git a/src/app/anfrage/page.tsx b/src/app/anfrage/page.tsx
+index ace6a70..e642d89 100644
+--- a/src/app/anfrage/page.tsx
++++ b/src/app/anfrage/page.tsx
+@@ -3,10 +3,10 @@ import AnfrageClient from "./AnfrageClient";
+ 
+ export default function AnfragePage() {
+   return (
+-    <main className="min-h-screen bg-stone-50 py-12 px-4">
++    <main className="min-h-screen bg-gradient-to-br from-[#f4efe7] to-[#e8dcc8] py-12 px-4">
+       <Suspense
+         fallback={
+-          <p className="text-center text-stone-400">Wird geladen…</p>
++          <p className="text-center text-[#9d8c7f]">Wird geladen…</p>
+         }
+       >
+         <AnfrageClient />
+diff --git a/src/app/api/admin/bookings/route.ts b/src/app/api/admin/bookings/route.ts
+index 2ad667d..a94b5db 100644
+--- a/src/app/api/admin/bookings/route.ts
++++ b/src/app/api/admin/bookings/route.ts
+@@ -43,6 +43,9 @@ export async function GET() {
+     checkIn: b.checkIn,
+     checkOut: b.checkOut,
+     guests: b.guests,
++    extraGuests: b.extraGuests,
++    hasPet: b.hasPet,
++    laundryPackages: b.laundryPackages,
+     notes: b.notes,
+     internalNotes: b.internalNotes,
+     totalPriceCents: b.totalPriceCents,
+diff --git a/src/app/api/public/apartments/route.ts b/src/app/api/public/apartments/route.ts
+index fcd122e..482f72d 100644
+--- a/src/app/api/public/apartments/route.ts
++++ b/src/app/api/public/apartments/route.ts
+@@ -1,6 +1,46 @@
+ import { prisma } from "@/lib/prisma";
+ 
+-export async function GET() {
++export async function GET(request: Request) {
++  const { searchParams } = new URL(request.url);
++  const apartmentId = searchParams.get("id");
++
++  if (apartmentId) {
++    // Return single apartment
++    const apartment = await prisma.apartment.findUnique({
++      where: { id: apartmentId },
++      include: {
++        photos: {
++          orderBy: { sortOrder: "asc" },
++        },
++      },
++    });
++
++    if (!apartment) {
++      return Response.json({ error: "Apartment not found" }, { status: 404 });
++    }
++
++    const payload = {
++      id: apartment.id,
++      title: apartment.title,
++      slug: apartment.slug,
++      description: apartment.description,
++      maxGuests: apartment.maxGuests,
++      bedrooms: apartment.bedrooms,
++      bathrooms: apartment.bathrooms,
++      basePriceCents: apartment.basePriceCents,
++      currency: apartment.currency,
++      photos: apartment.photos.map((photo) => ({
++        id: photo.id,
++        url: photo.url,
++        alt: photo.alt,
++        sortOrder: photo.sortOrder,
++      })),
++    };
++
++    return Response.json(payload);
++  }
++
++  // Return all apartments
+   const apartments = await prisma.apartment.findMany({
+     where: { isActive: true },
+     orderBy: [{ sortOrder: "asc" }, { title: "asc" }],
+diff --git a/src/app/api/public/booking-request/route.ts b/src/app/api/public/booking-request/route.ts
+index 1971d80..4f4727b 100644
+--- a/src/app/api/public/booking-request/route.ts
++++ b/src/app/api/public/booking-request/route.ts
+@@ -5,6 +5,7 @@ import {
+   calculateBookingPrice,
+   renderInvoiceHtml,
+ } from "@/lib/billing";
++import { getBookingPricingConfig } from "@/lib/booking-pricing";
+ import { sendBookingInvoiceEmail } from "@/lib/mailer";
+ 
+ type BookingRequestBody = {
+@@ -13,9 +14,17 @@ type BookingRequestBody = {
+   lastName?: string;
+   email?: string;
+   phone?: string;
++  street?: string;
++  houseNumber?: string;
++  postalCode?: string;
++  city?: string;
++  country?: string;
+   checkIn?: string;
+   checkOut?: string;
+   guests?: number;
++  agbAccepted?: boolean;
++  hasPet?: boolean;
++  laundryPackages?: number;
+   notes?: string;
+ };
+ 
+@@ -36,6 +45,11 @@ export async function POST(request: Request) {
+     !body.firstName ||
+     !body.lastName ||
+     !body.email ||
++    !body.street ||
++    !body.houseNumber ||
++    !body.postalCode ||
++    !body.city ||
++    !body.country ||
+     !body.checkIn ||
+     !body.checkOut ||
+     !body.guests
+@@ -43,17 +57,38 @@ export async function POST(request: Request) {
+     return Response.json(
+       {
+         error:
+-          "Missing fields. Required: apartmentId, firstName, lastName, email, checkIn, checkOut, guests.",
++          "Missing fields. Required: apartmentId, firstName, lastName, email, street, houseNumber, postalCode, city, country, checkIn, checkOut, guests.",
+       },
+       { status: 400 },
+     );
+   }
+ 
++  if (body.agbAccepted !== true) {
++    return Response.json(
++      { error: "Bitte AGB und Impressum/Disclaimer vor dem Absenden bestätigen." },
++      { status: 400 },
++    );
++  }
++
+   const apartmentId = body.apartmentId;
+   const firstName = body.firstName.trim();
+   const lastName = body.lastName.trim();
+   const email = body.email.trim().toLowerCase();
++  const street = body.street.trim();
++  const houseNumber = body.houseNumber.trim();
++  const postalCode = body.postalCode.trim();
++  const city = body.city.trim();
++  const country = body.country.trim();
+   const guests = body.guests;
++  const hasPet = Boolean(body.hasPet);
++  const laundryPackages = Math.max(0, Number(body.laundryPackages ?? 0));
++
++  if (guests < 1 || guests > 4) {
++    return Response.json({ error: "Please choose between 1 and 4 guests." }, { status: 400 });
++  }
++  if (laundryPackages > guests) {
++    return Response.json({ error: "Laundry packages cannot exceed guest count." }, { status: 400 });
++  }
+ 
+   const checkIn = parseDateOrNull(body.checkIn);
+   const checkOut = parseDateOrNull(body.checkOut);
+@@ -119,7 +154,19 @@ export async function POST(request: Request) {
+     );
+   }
+ 
+-  const pricing = calculateBookingPrice(apartment, checkIn, checkOut);
++  const pricingConfig = await getBookingPricingConfig();
++
++  const pricing = calculateBookingPrice(
++    apartment,
++    checkIn,
++    checkOut,
++    {
++      guests,
++      hasPet,
++      laundryPackages,
++    },
++    pricingConfig,
++  );
+ 
+   const result = await prisma.$transaction(async (tx) => {
+     const customer = await tx.customer.upsert({
+@@ -128,12 +175,22 @@ export async function POST(request: Request) {
+         firstName,
+         lastName,
+         phone: body.phone?.trim() || null,
++        street,
++        houseNumber,
++        postalCode,
++        city,
++        country,
+       },
+       create: {
+         firstName,
+         lastName,
+         email,
+         phone: body.phone?.trim() || null,
++        street,
++        houseNumber,
++        postalCode,
++        city,
++        country,
+       },
+     });
+ 
+@@ -144,6 +201,9 @@ export async function POST(request: Request) {
+         checkIn,
+         checkOut,
+         guests,
++        extraGuests: Math.max(0, guests - 2),
++        hasPet,
++        laundryPackages,
+         status: "PENDING",
+         totalPriceCents: pricing.totalAmountCents,
+         currency: apartment.currency,
+@@ -155,6 +215,9 @@ export async function POST(request: Request) {
+         checkIn: true,
+         checkOut: true,
+         guests: true,
++        extraGuests: true,
++        hasPet: true,
++        laundryPackages: true,
+         apartmentId: true,
+         customerId: true,
+         createdAt: true,
+@@ -180,14 +243,23 @@ export async function POST(request: Request) {
+         lastName: customer.lastName,
+         email: customer.email,
+         phone: customer.phone,
++        street: customer.street,
++        houseNumber: customer.houseNumber,
++        postalCode: customer.postalCode,
++        city: customer.city,
++        country: customer.country,
+       },
+       booking: {
+         id: booking.id,
+         checkIn: booking.checkIn,
+         checkOut: booking.checkOut,
+         guests: booking.guests,
++        extraGuests: booking.extraGuests,
++        hasPet: booking.hasPet,
++        laundryPackages: booking.laundryPackages,
+         notes: booking.notes,
+       },
++      pricingConfig,
+       pricing,
+       schedule,
+     });
+@@ -250,6 +322,9 @@ export async function POST(request: Request) {
+         checkIn: result.booking.checkIn,
+         checkOut: result.booking.checkOut,
+         guests: result.booking.guests,
++        extraGuests: result.booking.extraGuests,
++        hasPet: result.booking.hasPet,
++        laundryPackages: result.booking.laundryPackages,
+         apartmentId: result.booking.apartmentId,
+         customerId: result.booking.customerId,
+         totalPriceCents: result.booking.totalPriceCents,
+diff --git a/src/app/components/ApartmentCard.tsx b/src/app/components/ApartmentCard.tsx
+index e55e811..2792d55 100644
+--- a/src/app/components/ApartmentCard.tsx
++++ b/src/app/components/ApartmentCard.tsx
+@@ -12,41 +12,41 @@ export default function ApartmentCard({ apt }: { apt: Apartment }) {
+   const cover = apt.photos[0];
+ 
+   return (
+-    <article className="bg-white rounded-2xl shadow overflow-hidden flex flex-col">
+-      <div className="relative h-52 w-full bg-stone-100">
++    <article className="frost-card rounded-2xl overflow-hidden flex flex-col">
++      <div className="relative h-56 w-full bg-[#e8ddd0]">
+         {cover ? (
+           <Image
+             src={cover.url}
+             alt={cover.alt ?? apt.title}
+             fill
+-            className="object-cover"
++            className="object-cover transition-transform duration-500 hover:scale-105"
+             sizes="(max-width: 768px) 100vw, 50vw"
+           />
+         ) : (
+-          <div className="flex h-full items-center justify-center text-stone-400 text-sm">
++          <div className="flex h-full items-center justify-center text-[#806a59] text-sm">
+             Kein Foto
+           </div>
+         )}
+       </div>
+ 
+       <div className="flex flex-col flex-1 p-5 gap-3">
+-        <h2 className="text-xl font-semibold text-stone-800">{apt.title}</h2>
+-        <p className="text-stone-500 text-sm line-clamp-3">{apt.description}</p>
++        <h2 className="text-xl font-semibold text-[#2f241d]">{apt.title}</h2>
++        <p className="text-[#6f5c4f] text-sm line-clamp-3">{apt.description}</p>
+ 
+-        <ul className="flex gap-4 text-stone-500 text-sm mt-auto">
++        <ul className="flex gap-4 text-[#6f5c4f] text-sm mt-auto">
+           <li>🛏 {apt.bedrooms} Schlafzimmer</li>
+           <li>🚿 {apt.bathrooms} Bad</li>
+           <li>👤 max. {apt.maxGuests} Gäste</li>
+         </ul>
+ 
+         <div className="flex items-center justify-between mt-2">
+-          <p className="text-stone-700 font-medium">
++          <p className="text-[#2f241d] font-semibold">
+             ab {formatPrice(apt.basePriceCents, apt.currency)}
+-            <span className="text-stone-400 font-normal text-sm"> / Nacht</span>
++            <span className="text-[#866f5f] font-normal text-sm"> / Nacht</span>
+           </p>
+           <Link
+             href={`/anfrage?apartmentId=${apt.id}&apartment=${encodeURIComponent(apt.title)}`}
+-            className="bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
++            className="bg-brand hover:bg-brand-strong text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+           >
+             Anfragen
+           </Link>
+diff --git a/src/app/components/BookingRequestForm.tsx b/src/app/components/BookingRequestForm.tsx
+index d4d72eb..1bad0fa 100644
+--- a/src/app/components/BookingRequestForm.tsx
++++ b/src/app/components/BookingRequestForm.tsx
+@@ -1,7 +1,8 @@
+ "use client";
+ 
+-import { useState } from "react";
+-import { checkAvailability, submitBookingRequest } from "@/lib/api-client";
++import { useEffect, useState } from "react";
++import { fetchAvailabilityWindows, submitBookingRequest } from "@/lib/api-client";
++import Link from "next/link";
+ 
+ type Props = {
+   apartmentId: string;
+@@ -12,70 +13,213 @@ type FormState = {
+   checkIn: string;
+   checkOut: string;
+   guests: string;
++  hasPet: boolean;
++  laundryPackages: string;
+   firstName: string;
+   lastName: string;
+   email: string;
+   phone: string;
++  street: string;
++  houseNumber: string;
++  postalCode: string;
++  city: string;
++  country: string;
+   notes: string;
++  agbAccepted: boolean;
+ };
+ 
+ const INITIAL: FormState = {
+   checkIn: "",
+   checkOut: "",
+   guests: "2",
++  hasPet: false,
++  laundryPackages: "0",
+   firstName: "",
+   lastName: "",
+   email: "",
+   phone: "",
++  street: "",
++  houseNumber: "",
++  postalCode: "",
++  city: "",
++  country: "Deutschland",
+   notes: "",
++  agbAccepted: false,
+ };
+ 
+-type Step = "availability" | "contact" | "success";
++type Step = "travelers" | "dates" | "contact" | "extras" | "success";
++
++type AvailabilityWindow = {
++  checkIn: string;
++  checkOut: string;
++};
++
++function formatDateRange(checkIn: string, checkOut: string) {
++  const formatter = new Intl.DateTimeFormat("de-DE", {
++    day: "numeric",
++    month: "numeric",
++    year: "numeric",
++  });
++
++  return `${formatter.format(new Date(checkIn))} – ${formatter.format(new Date(checkOut))}`;
++}
++
++function toDayKey(date: Date) {
++  return date.toISOString().slice(0, 10);
++}
++
++function utcDay(date: Date) {
++  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
++}
++
++function utcMonthStart(date: Date) {
++  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
++}
++
++function addMonths(date: Date, months: number) {
++  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1));
++}
++
++function monthLabel(date: Date) {
++  return new Intl.DateTimeFormat("de-DE", { month: "long", year: "numeric" }).format(date);
++}
+ 
+ export default function BookingRequestForm({ apartmentId, apartmentTitle }: Props) {
+   const [form, setForm] = useState<FormState>(INITIAL);
+-  const [step, setStep] = useState<Step>("availability");
+-  const [available, setAvailable] = useState<boolean | null>(null);
+-  const [loadingAvail, setLoadingAvail] = useState(false);
++  const [step, setStep] = useState<Step>("travelers");
++  const [loadingWindows, setLoadingWindows] = useState(false);
++  const [availabilityWindows, setAvailabilityWindows] = useState<AvailabilityWindow[]>([]);
++  const [availabilityWindowsError, setAvailabilityWindowsError] = useState<string | null>(null);
++  const [visibleMonthStart, setVisibleMonthStart] = useState(() => utcMonthStart(new Date()));
+   const [loadingSubmit, setLoadingSubmit] = useState(false);
+   const [error, setError] = useState<string | null>(null);
+   const [bookingId, setBookingId] = useState<string | null>(null);
+ 
+-  function update(field: keyof FormState, value: string) {
++  useEffect(() => {
++    let cancelled = false;
++
++    async function loadWindows() {
++      setLoadingWindows(true);
++      setAvailabilityWindowsError(null);
++      try {
++        const windows = await fetchAvailabilityWindows(apartmentId);
++        if (!cancelled) {
++          setAvailabilityWindows(windows);
++        }
++      } catch {
++        if (!cancelled) {
++          setAvailabilityWindows([]);
++          setAvailabilityWindowsError("Die verfügbaren Zeiträume konnten nicht geladen werden.");
++        }
++      } finally {
++        if (!cancelled) {
++          setLoadingWindows(false);
++        }
++      }
++    }
++
++    loadWindows();
++
++    return () => {
++      cancelled = true;
++    };
++  }, [apartmentId]);
++
++  function update(field: keyof FormState, value: string | boolean) {
+     setForm((prev) => ({ ...prev, [field]: value }));
+     if (error) setError(null);
+   }
+ 
+-  async function handleCheckAvailability() {
+-    if (!form.checkIn || !form.checkOut) {
+-      setError("Bitte Anreise- und Abreisedatum auswählen.");
++  function findWindowForDate(date: Date) {
++    const iso = toDayKey(date);
++    return availabilityWindows.find((window) => window.checkIn.slice(0, 10) <= iso && iso < window.checkOut.slice(0, 10));
++  }
++
++  function handleCalendarDayClick(date: Date) {
++    const window = findWindowForDate(date);
++    if (!window) return;
++
++    const clickedDate = toDayKey(date);
++
++    if (!form.checkIn || form.checkOut) {
++      setForm((prev) => ({
++        ...prev,
++        checkIn: clickedDate,
++        checkOut: "",
++      }));
++      setError(null);
++      return;
++    }
++
++    if (clickedDate <= form.checkIn) {
++      setForm((prev) => ({
++        ...prev,
++        checkIn: clickedDate,
++        checkOut: "",
++      }));
++      setError(null);
++      return;
++    }
++
++    const selectedWindow = findWindowForDate(new Date(form.checkIn));
++    if (!selectedWindow) {
++      setError("Der gewählte Zeitraum ist nicht verfügbar.");
+       return;
+     }
+-    setLoadingAvail(true);
++
++    if (clickedDate >= selectedWindow.checkOut.slice(0, 10)) {
++      setError("Über graue Tage hinweg kann kein Zeitraum gewählt werden. Bitte innerhalb eines freien Blocks bleiben.");
++      return;
++    }
++
++    setForm((prev) => ({
++      ...prev,
++      checkOut: clickedDate,
++    }));
+     setError(null);
+-    try {
+-      const result = await checkAvailability(apartmentId, form.checkIn, form.checkOut);
+-      setAvailable(result.available);
+-      if (result.available) {
+-        setStep("contact");
+-      } else {
+-        setError(
+-          result.reason === "booked"
+-            ? "Dieser Zeitraum ist leider bereits vergeben."
+-            : "Dieser Zeitraum ist leider gesperrt.",
+-        );
+-      }
+-    } catch {
+-      setError("Fehler bei der Verfügbarkeitsprüfung. Bitte erneut versuchen.");
+-    } finally {
+-      setLoadingAvail(false);
++  }
++
++  const monthCards = [] as Array<{ monthStart: Date; days: Date[] }>;
++  const today = utcDay(new Date());
++  const currentMonthStart = utcMonthStart(new Date());
++  for (let offset = 0; offset < 2; offset += 1) {
++    const monthStart = addMonths(visibleMonthStart, offset);
++    const days: Date[] = [];
++    const daysInMonth = new Date(Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() + 1, 0)).getUTCDate();
++    for (let day = 1; day <= daysInMonth; day += 1) {
++      days.push(new Date(Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth(), day)));
+     }
++    monthCards.push({ monthStart, days });
++  }
++
++  function goToPreviousMonths() {
++    setVisibleMonthStart((prev) => {
++      const previous = addMonths(prev, -1);
++      return previous < currentMonthStart ? currentMonthStart : previous;
++    });
++  }
++
++  function goToNextMonths() {
++    setVisibleMonthStart((prev) => addMonths(prev, 1));
+   }
+ 
+   async function handleSubmit(e: React.FormEvent) {
+     e.preventDefault();
+-    if (!form.firstName || !form.lastName || !form.email) {
+-      setError("Bitte alle Pflichtfelder ausfüllen.");
++    if (
++      !form.firstName ||
++      !form.lastName ||
++      !form.email ||
++      !form.street ||
++      !form.houseNumber ||
++      !form.postalCode ||
++      !form.city ||
++      !form.country
++    ) {
++      setError("Bitte alle Pflichtfelder der Kontaktdaten ausfüllen.");
++      return;
++    }
++    if (!form.agbAccepted) {
++      setError("Bitte bestätigen Sie, dass Sie die AGB gelesen und akzeptiert haben.");
+       return;
+     }
+     setLoadingSubmit(true);
+@@ -87,9 +231,17 @@ export default function BookingRequestForm({ apartmentId, apartmentTitle }: Prop
+         lastName: form.lastName,
+         email: form.email,
+         phone: form.phone || undefined,
++        street: form.street,
++        houseNumber: form.houseNumber,
++        postalCode: form.postalCode,
++        city: form.city,
++        country: form.country,
+         checkIn: form.checkIn,
+         checkOut: form.checkOut,
+         guests: parseInt(form.guests, 10),
++        agbAccepted: form.agbAccepted,
++        hasPet: form.hasPet,
++        laundryPackages: parseInt(form.laundryPackages, 10),
+         notes: form.notes || undefined,
+       });
+       setBookingId(result.booking.id);
+@@ -125,110 +277,343 @@ export default function BookingRequestForm({ apartmentId, apartmentTitle }: Prop
+         </div>
+       )}
+ 
+-      {/* Schritt 1: Zeitraum + Verfügbarkeit */}
+-      <section className="bg-white rounded-2xl shadow p-6 mb-4">
+-        <h2 className="font-medium text-stone-700 mb-4">1. Reisezeitraum</h2>
+-        <div className="grid grid-cols-2 gap-4 mb-4">
+-          <label className="flex flex-col gap-1 text-sm text-stone-600">
+-            Anreise *
+-            <input
+-              type="date"
+-              value={form.checkIn}
+-              min={new Date().toISOString().slice(0, 10)}
+-              onChange={(e) => update("checkIn", e.target.value)}
++      <div className="mb-4 text-xs text-stone-500">Schritt {step === "travelers" ? "1" : step === "dates" ? "2" : step === "contact" ? "3" : "4"} von 4</div>
++
++      {step === "travelers" && (
++        <section className="bg-white rounded-2xl shadow p-6 mb-4">
++          <h2 className="font-medium text-stone-700 mb-4">1. Wer reist?</h2>
++
++          <label className="flex flex-col gap-1 text-sm text-stone-600 mb-4">
++            Anzahl Personen *
++            <select
++              value={form.guests}
++              onChange={(e) => update("guests", e.target.value)}
+               className="border border-stone-300 rounded-lg px-3 py-2 text-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
+-            />
++            >
++              {[1, 2, 3, 4].map((n) => (
++                <option key={n} value={n}>
++                  {n} {n === 1 ? "Person" : "Personen"}
++                </option>
++              ))}
++            </select>
+           </label>
+-          <label className="flex flex-col gap-1 text-sm text-stone-600">
+-            Abreise *
++
++          <label className="flex items-center justify-between gap-4 rounded-xl border border-stone-200 px-4 py-3 text-sm text-stone-700 mb-4">
++            <span>
++              Haustier mitbringen
++              <span className="block text-xs text-stone-500">+10€ pro Nacht</span>
++            </span>
+             <input
+-              type="date"
+-              value={form.checkOut}
+-              min={form.checkIn || new Date().toISOString().slice(0, 10)}
+-              onChange={(e) => update("checkOut", e.target.value)}
+-              className="border border-stone-300 rounded-lg px-3 py-2 text-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
++              type="checkbox"
++              checked={form.hasPet}
++              onChange={(e) => update("hasPet", e.target.checked)}
++              className="h-4 w-4 accent-amber-500"
+             />
+           </label>
+-        </div>
+-        <label className="flex flex-col gap-1 text-sm text-stone-600 mb-4">
+-          Anzahl Gäste *
+-          <select
+-            value={form.guests}
+-            onChange={(e) => update("guests", e.target.value)}
+-            className="border border-stone-300 rounded-lg px-3 py-2 text-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
++
++          <button
++            type="button"
++            onClick={() => setStep("dates")}
++            className="w-full bg-amber-500 hover:bg-amber-600 text-white font-medium py-2 rounded-xl transition-colors"
+           >
+-            {[1, 2, 3, 4, 5, 6].map((n) => (
+-              <option key={n} value={n}>
+-                {n} {n === 1 ? "Person" : "Personen"}
+-              </option>
+-            ))}
+-          </select>
+-        </label>
+-
+-        {available === false && (
+-          <div className="text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm mb-4">
+-            Dieser Zeitraum ist leider nicht verfügbar. Bitte wählen Sie einen anderen Zeitraum.
++            Weiter zum Reisezeitraum
++          </button>
++        </section>
++      )}
++
++      {step === "dates" && (
++        <section className="bg-white rounded-2xl shadow p-6 mb-4">
++          <h2 className="font-medium text-stone-700 mb-4">2. Reisezeitraum</h2>
++
++          <div className="mb-5 rounded-2xl border border-stone-200 bg-stone-50/70 p-4">
++            <div className="flex items-start justify-between gap-4 mb-3">
++              <div>
++                <h3 className="font-medium text-stone-800">Freie Zeiträume im Kalender</h3>
++                <p className="text-sm text-stone-600">
++                  Freie Tage sind markiert. 1. Klick = Anreise, 2. Klick = Abreise. Ein früheres Datum startet die Auswahl neu.
++                </p>
++              </div>
++              <div className="flex items-center gap-2">
++                <button
++                  type="button"
++                  onClick={goToPreviousMonths}
++                  disabled={visibleMonthStart <= currentMonthStart}
++                  aria-label="Vorherige Monate anzeigen"
++                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-stone-200 bg-white text-stone-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-stone-50"
++                >
++                  ‹
++                </button>
++                <button
++                  type="button"
++                  onClick={goToNextMonths}
++                  aria-label="Nächste Monate anzeigen"
++                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-stone-200 bg-white text-stone-600 hover:bg-stone-50"
++                >
++                  ›
++                </button>
++                <span className="text-xs font-medium rounded-full bg-white px-3 py-1 text-stone-600 border border-stone-200">
++                  {loadingWindows ? "Lade…" : `${availabilityWindows.length} Blöcke`}
++                </span>
++              </div>
++            </div>
++
++            {availabilityWindowsError && (
++              <p className="text-sm text-amber-800 mb-3">{availabilityWindowsError}</p>
++            )}
++
++            {!loadingWindows && !availabilityWindowsError && availabilityWindows.length === 0 && (
++              <p className="text-sm text-stone-500">
++                Im aktuellen Horizont sind keine freien Zeiträume sichtbar.
++              </p>
++            )}
++
++            <div className="grid gap-4 sm:grid-cols-2">
++              {monthCards.map(({ monthStart, days }) => (
++                <div key={toDayKey(monthStart)} className="rounded-2xl border border-stone-200 bg-white p-3 shadow-sm">
++                  <div className="mb-2 flex items-center justify-between">
++                    <h4 className="text-sm font-semibold text-stone-800 capitalize">{monthLabel(monthStart)}</h4>
++                    <span className="text-[11px] text-stone-500">Klick auf freien Tag</span>
++                  </div>
++
++                  <div className="grid grid-cols-7 gap-1 text-[11px] text-stone-400 mb-2">
++                    {["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"].map((label) => (
++                      <div key={label} className="text-center">
++                        {label}
++                      </div>
++                    ))}
++                  </div>
++
++                  <div className="grid grid-cols-7 gap-1">
++                    {Array.from({ length: ((monthStart.getUTCDay() + 6) % 7) }).map((_, index) => (
++                      <div key={`pad-${index}`} />
++                    ))}
++                    {days.map((day) => {
++                      const iso = toDayKey(day);
++                      const window = findWindowForDate(day);
++                      const isSelectedRange = Boolean(form.checkIn && form.checkOut && iso > form.checkIn && iso < form.checkOut);
++                      const isRangeStart = Boolean(form.checkIn && iso === form.checkIn);
++                      const isRangeEnd = Boolean(form.checkOut && iso === form.checkOut);
++                      const isToday = iso === toDayKey(today);
++                      const isAvailable = Boolean(window);
++                      return (
++                        <button
++                          key={iso}
++                          type="button"
++                          disabled={!isAvailable}
++                          onClick={() => handleCalendarDayClick(day)}
++                          title={isAvailable ? `Freier Zeitraum ${formatDateRange(window!.checkIn, window!.checkOut)}` : "Belegt"}
++                          className={[
++                            "flex h-9 items-center justify-center rounded-lg border text-xs font-medium transition-colors",
++                            isAvailable
++                              ? isRangeStart || isRangeEnd
++                                ? "border-amber-400 bg-amber-400 text-white"
++                                : isSelectedRange
++                                  ? "border-amber-200 bg-amber-100 text-amber-900"
++                                  : "border-emerald-200 bg-emerald-50 text-emerald-800 hover:border-emerald-400 hover:bg-emerald-100"
++                              : "border-stone-100 bg-stone-100 text-stone-400 cursor-not-allowed",
++                            isToday ? "ring-2 ring-amber-300" : "",
++                          ].join(" ")}
++                        >
++                          {day.getUTCDate()}
++                        </button>
++                      );
++                    })}
++                  </div>
++                </div>
++              ))}
++            </div>
++          </div>
++
++          <div className="grid grid-cols-2 gap-4 mb-4">
++            <label className="flex flex-col gap-1 text-sm text-stone-600">
++              Anreise *
++              <input
++                type="text"
++                value={form.checkIn ? new Intl.DateTimeFormat("de-DE").format(new Date(form.checkIn)) : "Bitte im Kalender auswählen"}
++                readOnly
++                className="border border-stone-300 rounded-lg px-3 py-2 text-stone-800 bg-stone-100 cursor-not-allowed"
++              />
++            </label>
++            <label className="flex flex-col gap-1 text-sm text-stone-600">
++              Abreise *
++              <input
++                type="text"
++                value={form.checkOut ? new Intl.DateTimeFormat("de-DE").format(new Date(form.checkOut)) : "Bitte im Kalender auswählen"}
++                readOnly
++                className="border border-stone-300 rounded-lg px-3 py-2 text-stone-800 bg-stone-100 cursor-not-allowed"
++              />
++            </label>
+           </div>
+-        )}
+-
+-        <button
+-          type="button"
+-          onClick={handleCheckAvailability}
+-          disabled={loadingAvail}
+-          className="w-full bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-medium py-2 rounded-xl transition-colors"
+-        >
+-          {loadingAvail ? "Prüfe Verfügbarkeit…" : "Verfügbarkeit prüfen"}
+-        </button>
+-      </section>
+-
+-      {/* Schritt 2: Kontaktdaten */}
++
++          <div className="grid grid-cols-2 gap-3">
++            <button
++              type="button"
++              onClick={() => setStep("travelers")}
++              className="w-full bg-stone-200 hover:bg-stone-300 text-stone-800 font-medium py-2 rounded-xl transition-colors"
++            >
++              Zurück
++            </button>
++            <button
++              type="button"
++              onClick={() => setStep("contact")}
++              disabled={!form.checkIn || !form.checkOut}
++              className="w-full bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-medium py-2 rounded-xl transition-colors"
++            >
++              Weiter zu Kontaktdaten
++            </button>
++          </div>
++        </section>
++      )}
++
+       {step === "contact" && (
+-        <form onSubmit={handleSubmit}>
+-          <section className="bg-white rounded-2xl shadow p-6 mb-4">
+-            <h2 className="font-medium text-stone-700 mb-4">2. Ihre Kontaktdaten</h2>
+-            <div className="grid grid-cols-2 gap-4 mb-4">
+-              <label className="flex flex-col gap-1 text-sm text-stone-600">
+-                Vorname *
+-                <input
+-                  type="text"
+-                  value={form.firstName}
+-                  onChange={(e) => update("firstName", e.target.value)}
+-                  className="border border-stone-300 rounded-lg px-3 py-2 text-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
+-                  required
+-                />
+-              </label>
+-              <label className="flex flex-col gap-1 text-sm text-stone-600">
+-                Nachname *
+-                <input
+-                  type="text"
+-                  value={form.lastName}
+-                  onChange={(e) => update("lastName", e.target.value)}
+-                  className="border border-stone-300 rounded-lg px-3 py-2 text-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
+-                  required
+-                />
+-              </label>
+-            </div>
+-            <label className="flex flex-col gap-1 text-sm text-stone-600 mb-4">
+-              E-Mail *
++        <section className="bg-white rounded-2xl shadow p-6 mb-4">
++          <h2 className="font-medium text-stone-700 mb-4">3. Buchungskontakt</h2>
++          <div className="grid grid-cols-2 gap-4 mb-4">
++            <label className="flex flex-col gap-1 text-sm text-stone-600">
++              Vorname *
+               <input
+-                type="email"
+-                value={form.email}
+-                onChange={(e) => update("email", e.target.value)}
++                type="text"
++                value={form.firstName}
++                onChange={(e) => update("firstName", e.target.value)}
+                 className="border border-stone-300 rounded-lg px-3 py-2 text-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
+-                required
+               />
+             </label>
+-            <label className="flex flex-col gap-1 text-sm text-stone-600 mb-4">
+-              Telefon (optional)
++            <label className="flex flex-col gap-1 text-sm text-stone-600">
++              Nachname *
+               <input
+-                type="tel"
+-                value={form.phone}
+-                onChange={(e) => update("phone", e.target.value)}
++                type="text"
++                value={form.lastName}
++                onChange={(e) => update("lastName", e.target.value)}
+                 className="border border-stone-300 rounded-lg px-3 py-2 text-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
+               />
+             </label>
++          </div>
++
++          <div className="grid grid-cols-3 gap-4 mb-4">
++            <label className="col-span-2 flex flex-col gap-1 text-sm text-stone-600">
++              Strasse *
++              <input
++                type="text"
++                value={form.street}
++                onChange={(e) => update("street", e.target.value)}
++                className="border border-stone-300 rounded-lg px-3 py-2 text-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
++              />
++            </label>
++            <label className="flex flex-col gap-1 text-sm text-stone-600">
++              Nr. *
++              <input
++                type="text"
++                value={form.houseNumber}
++                onChange={(e) => update("houseNumber", e.target.value)}
++                className="border border-stone-300 rounded-lg px-3 py-2 text-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
++              />
++            </label>
++          </div>
++
++          <div className="grid grid-cols-3 gap-4 mb-4">
+             <label className="flex flex-col gap-1 text-sm text-stone-600">
+-              Nachricht (optional)
++              PLZ *
++              <input
++                type="text"
++                value={form.postalCode}
++                onChange={(e) => update("postalCode", e.target.value)}
++                className="border border-stone-300 rounded-lg px-3 py-2 text-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
++              />
++            </label>
++            <label className="col-span-2 flex flex-col gap-1 text-sm text-stone-600">
++              Ort *
++              <input
++                type="text"
++                value={form.city}
++                onChange={(e) => update("city", e.target.value)}
++                className="border border-stone-300 rounded-lg px-3 py-2 text-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
++              />
++            </label>
++          </div>
++
++          <label className="flex flex-col gap-1 text-sm text-stone-600 mb-4">
++            Land *
++            <input
++              type="text"
++              value={form.country}
++              onChange={(e) => update("country", e.target.value)}
++              className="border border-stone-300 rounded-lg px-3 py-2 text-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
++            />
++          </label>
++
++          <label className="flex flex-col gap-1 text-sm text-stone-600 mb-4">
++            E-Mail *
++            <input
++              type="email"
++              value={form.email}
++              onChange={(e) => update("email", e.target.value)}
++              className="border border-stone-300 rounded-lg px-3 py-2 text-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
++            />
++          </label>
++          <label className="flex flex-col gap-1 text-sm text-stone-600 mb-4">
++            Telefon (optional)
++            <input
++              type="tel"
++              value={form.phone}
++              onChange={(e) => update("phone", e.target.value)}
++              className="border border-stone-300 rounded-lg px-3 py-2 text-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
++            />
++          </label>
++
++          <div className="grid grid-cols-2 gap-3">
++            <button
++              type="button"
++              onClick={() => setStep("dates")}
++              className="w-full bg-stone-200 hover:bg-stone-300 text-stone-800 font-medium py-2 rounded-xl transition-colors"
++            >
++              Zurück
++            </button>
++            <button
++              type="button"
++              onClick={() => setStep("extras")}
++              disabled={
++                !form.firstName ||
++                !form.lastName ||
++                !form.email ||
++                !form.street ||
++                !form.houseNumber ||
++                !form.postalCode ||
++                !form.city ||
++                !form.country
++              }
++              className="w-full bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-medium py-2 rounded-xl transition-colors"
++            >
++              Weiter zu Zusatzoptionen
++            </button>
++          </div>
++        </section>
++      )}
++
++      {step === "extras" && (
++        <form onSubmit={handleSubmit}>
++          <section className="bg-white rounded-2xl shadow p-6 mb-4">
++            <h2 className="font-medium text-stone-700 mb-4">4. Zusatzoptionen</h2>
++
++            <label className="flex flex-col gap-1 text-sm text-stone-600 mb-4">
++              Wäschepakete
++              <select
++                value={form.laundryPackages}
++                onChange={(e) => update("laundryPackages", e.target.value)}
++                className="border border-stone-300 rounded-lg px-3 py-2 text-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
++              >
++                {[0, 1, 2, 3, 4].map((n) => (
++                  <option key={n} value={n}>
++                    {n} {n === 1 ? "Paket" : "Pakete"}
++                  </option>
++                ))}
++              </select>
++              <span className="text-xs text-stone-500">
++                Ein Wäschepaket enthält Handtücher und Bettwäsche für eine Person.
++              </span>
++            </label>
++
++            <label className="flex flex-col gap-1 text-sm text-stone-600 mb-2">
++              Sonstiges (optional)
+               <textarea
+                 value={form.notes}
+                 onChange={(e) => update("notes", e.target.value)}
+@@ -236,15 +621,37 @@ export default function BookingRequestForm({ apartmentId, apartmentTitle }: Prop
+                 className="border border-stone-300 rounded-lg px-3 py-2 text-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
+               />
+             </label>
+-          </section>
++            <p className="text-xs text-stone-500 mb-4">Weitere Zusatzoptionen können später ergänzt werden.</p>
+ 
+-          <button
+-            type="submit"
+-            disabled={loadingSubmit}
+-            className="w-full bg-stone-800 hover:bg-stone-700 disabled:opacity-50 text-white font-medium py-3 rounded-xl transition-colors"
+-          >
+-            {loadingSubmit ? "Anfrage wird gesendet…" : "Anfrage absenden"}
+-          </button>
++            <label className="flex items-start gap-3 rounded-xl border border-stone-200 px-4 py-3 text-sm text-stone-700 mb-5">
++              <input
++                type="checkbox"
++                checked={form.agbAccepted}
++                onChange={(e) => update("agbAccepted", e.target.checked)}
++                className="mt-0.5 h-4 w-4 accent-amber-500"
++              />
++              <span>
++                Ich habe die <Link href="/agb" target="_blank" className="text-amber-700 hover:underline">AGB</Link> sowie das <Link href="/impressum" target="_blank" className="text-amber-700 hover:underline">Impressum/Disclaimer</Link> gelesen und akzeptiere diese.
++              </span>
++            </label>
++
++            <div className="grid grid-cols-2 gap-3">
++              <button
++                type="button"
++                onClick={() => setStep("contact")}
++                className="w-full bg-stone-200 hover:bg-stone-300 text-stone-800 font-medium py-2 rounded-xl transition-colors"
++              >
++                Zurück
++              </button>
++              <button
++                type="submit"
++                disabled={loadingSubmit || !form.agbAccepted}
++                className="w-full bg-stone-800 hover:bg-stone-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-2 rounded-xl transition-colors"
++              >
++                {loadingSubmit ? "Anfrage wird gesendet…" : "Anfrage absenden"}
++              </button>
++            </div>
++          </section>
+         </form>
+       )}
+     </div>
+diff --git a/src/app/globals.css b/src/app/globals.css
+index a2dc41e..0a50548 100644
+--- a/src/app/globals.css
++++ b/src/app/globals.css
+@@ -1,26 +1,50 @@
+ @import "tailwindcss";
+ 
+ :root {
+-  --background: #ffffff;
+-  --foreground: #171717;
++  --background: #f4efe7;
++  --foreground: #2f241d;
++  --surface: #fffaf3;
++  --surface-strong: #f1e7da;
++  --brand: #1f6f61;
++  --brand-strong: #155247;
++  --accent: #b35b3f;
++  --line: #d8c8b4;
+ }
+ 
+ @theme inline {
+   --color-background: var(--background);
+   --color-foreground: var(--foreground);
++  --color-surface: var(--surface);
++  --color-surface-strong: var(--surface-strong);
++  --color-brand: var(--brand);
++  --color-brand-strong: var(--brand-strong);
++  --color-accent: var(--accent);
++  --color-line: var(--line);
+   --font-sans: var(--font-geist-sans);
+   --font-mono: var(--font-geist-mono);
+ }
+ 
+-@media (prefers-color-scheme: dark) {
+-  :root {
+-    --background: #0a0a0a;
+-    --foreground: #ededed;
+-  }
+-}
+-
+ body {
+   background: var(--background);
+   color: var(--foreground);
+-  font-family: Arial, Helvetica, sans-serif;
++  font-family: var(--font-geist-sans), "Avenir Next", "Segoe UI", sans-serif;
++  background-image:
++    radial-gradient(circle at 15% 10%, #f9d8b4 0%, transparent 34%),
++    radial-gradient(circle at 85% 0%, #d6efe8 0%, transparent 32%),
++    linear-gradient(180deg, #f6f0e8 0%, #f2ece3 100%);
++  background-attachment: fixed;
++}
++
++.page-frame {
++  max-width: 1200px;
++  margin: 0 auto;
++  padding-left: 1rem;
++  padding-right: 1rem;
++}
++
++.frost-card {
++  background: color-mix(in srgb, var(--surface) 82%, white 18%);
++  border: 1px solid color-mix(in srgb, var(--line) 78%, white 22%);
++  box-shadow: 0 20px 60px -34px rgba(46, 34, 25, 0.45);
++  backdrop-filter: blur(8px);
+ }
+diff --git a/src/app/layout.tsx b/src/app/layout.tsx
+index 976eb90..d40ec33 100644
+--- a/src/app/layout.tsx
++++ b/src/app/layout.tsx
+@@ -1,6 +1,7 @@
+ import type { Metadata } from "next";
+ import { Geist, Geist_Mono } from "next/font/google";
+ import "./globals.css";
++import Navigation from "./components/Navigation";
+ 
+ const geistSans = Geist({
+   variable: "--font-geist-sans",
+@@ -13,8 +14,8 @@ const geistMono = Geist_Mono({
+ });
+ 
+ export const metadata: Metadata = {
+-  title: "Create Next App",
+-  description: "Generated by create next app",
++  title: "Gästehaus Braun",
++  description: "Ferienwohnungen im Gästehaus Braun",
+ };
+ 
+ export default function RootLayout({
+@@ -24,10 +25,13 @@ export default function RootLayout({
+ }>) {
+   return (
+     <html
+-      lang="en"
++      lang="de"
+       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+     >
+-      <body className="min-h-full flex flex-col">{children}</body>
++      <body className="min-h-full flex flex-col">
++        <Navigation />
++        {children}
++      </body>
+     </html>
+   );
+ }
+diff --git a/src/app/page.tsx b/src/app/page.tsx
+index 114a5a8..bbcd116 100644
+--- a/src/app/page.tsx
++++ b/src/app/page.tsx
+@@ -1,39 +1,10 @@
+-import { fetchApartments } from "@/lib/api-client";
+-import ApartmentCard from "./components/ApartmentCard";
+-
+-export default async function HomePage() {
+-  const apartments = await fetchApartments();
++import { Suspense } from "react";
++import HomeClient from "./home-client";
+ 
++export default function HomePage() {
+   return (
+-    <main className="min-h-screen bg-stone-50">
+-      <section className="bg-stone-800 text-white py-20 px-4 text-center">
+-        <h1 className="text-4xl font-bold mb-3">Willkommen im Gästehaus Braun</h1>
+-        <p className="text-stone-300 text-lg max-w-xl mx-auto">
+-          Erholen Sie sich in unseren gemütlichen Ferienwohnungen – mitten in der Natur.
+-        </p>
+-      </section>
+-
+-      <section className="max-w-5xl mx-auto px-4 py-16">
+-        <h2 className="text-2xl font-semibold text-stone-800 mb-8">Unsere Unterkünfte</h2>
+-        {apartments.length === 0 ? (
+-          <p className="text-stone-400">Derzeit keine Unterkünfte verfügbar.</p>
+-        ) : (
+-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+-            {apartments.map((apt) => (
+-              <ApartmentCard key={apt.id} apt={apt} />
+-            ))}
+-          </div>
+-        )}
+-      </section>
+-
+-      <section className="bg-white border-t border-stone-200 py-12 px-4 text-center">
+-        <p className="text-stone-600">
+-          Fragen? Schreiben Sie uns unter{" "}
+-          <a href="mailto:info@gaestehaus-braun.de" className="text-amber-600 hover:underline">
+-            info@gaestehaus-braun.de
+-          </a>
+-        </p>
+-      </section>
+-    </main>
++    <Suspense fallback={<div className="text-center py-16">Wird geladen…</div>}>
++      <HomeClient />
++    </Suspense>
+   );
+ }
+diff --git a/src/lib/api-client.ts b/src/lib/api-client.ts
+index 98b8cdd..9625c36 100644
+--- a/src/lib/api-client.ts
++++ b/src/lib/api-client.ts
+@@ -1,4 +1,4 @@
+-import type { Apartment, AvailabilityResult, BookingRequestPayload } from "@/lib/types";
++import type { Apartment, AvailabilityResult, AvailabilityWindow, BookingRequestPayload } from "@/lib/types";
+ 
+ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+ 
+@@ -24,6 +24,16 @@ export async function checkAvailability(
+   return res.json();
+ }
+ 
++export async function fetchAvailabilityWindows(apartmentId: string): Promise<AvailabilityWindow[]> {
++  const params = new URLSearchParams({ apartmentId });
++  const res = await fetch(`${BASE_URL}/api/public/availability-windows?${params}`, {
++    cache: "no-store",
++  });
++  if (!res.ok) throw new Error("Failed to load availability windows");
++  const data = (await res.json()) as { windows?: AvailabilityWindow[] };
++  return data.windows ?? [];
++}
++
+ export async function submitBookingRequest(
+   payload: BookingRequestPayload,
+ ): Promise<{ booking: { id: string } }> {
+diff --git a/src/lib/billing.ts b/src/lib/billing.ts
+index d6917a7..96168ba 100644
+--- a/src/lib/billing.ts
++++ b/src/lib/billing.ts
+@@ -1,3 +1,5 @@
++import { DEFAULT_BOOKING_PRICING_CONFIG, type BookingPricingConfig } from "@/lib/booking-pricing";
++
+ type RateLike = {
+   name: string;
+   startDate: Date;
+@@ -12,6 +14,12 @@ type ApartmentPricingSource = {
+   rates: RateLike[];
+ };
+ 
++export type BookingExtras = {
++  guests: number;
++  hasPet: boolean;
++  laundryPackages: number;
++};
++
+ export type InvoiceLineItem = {
+   label: string;
+   nights: number;
+@@ -26,6 +34,7 @@ export type BookingPricing = {
+   currency: string;
+   nights: number;
+   lineItems: InvoiceLineItem[];
++  extrasAmountCents: number;
+ };
+ 
+ export type PaymentSchedule = {
+@@ -45,14 +54,23 @@ type InvoiceHtmlInput = {
+     lastName: string;
+     email: string;
+     phone: string | null;
++    street: string | null;
++    houseNumber: string | null;
++    postalCode: string | null;
++    city: string | null;
++    country: string | null;
+   };
+   booking: {
+     id: string;
+     checkIn: Date;
+     checkOut: Date;
+     guests: number;
++    extraGuests: number;
++    hasPet: boolean;
++    laundryPackages: number;
+     notes: string | null;
+   };
++  pricingConfig: BookingPricingConfig;
+   pricing: BookingPricing;
+   schedule: PaymentSchedule;
+ };
+@@ -97,9 +115,12 @@ export function calculateBookingPrice(
+   apartment: ApartmentPricingSource,
+   checkIn: Date,
+   checkOut: Date,
++  extras: BookingExtras,
++  pricingConfig: BookingPricingConfig = DEFAULT_BOOKING_PRICING_CONFIG,
+ ): BookingPricing {
+   const start = startOfUtcDay(checkIn);
+   const end = startOfUtcDay(checkOut);
++  const nights = countNights(checkIn, checkOut);
+   const nightlyEntries: Array<{ date: Date; label: string; nightlyPriceCents: number }> = [];
+ 
+   for (let cursor = new Date(start); cursor < end; cursor = addUtcDays(cursor, 1)) {
+@@ -142,12 +163,20 @@ export function calculateBookingPrice(
+   }
+ 
+   const totalAmountCents = lineItems.reduce((sum, item) => sum + item.amountCents, 0);
++  const extraGuestCount = Math.max(0, extras.guests - 2);
++  const extrasAmountCents =
++    extraGuestCount * nights * pricingConfig.extraGuestPerNightCents +
++    (extras.hasPet ? nights * pricingConfig.petFeePerNightCents : 0) +
++    Math.max(0, extras.laundryPackages) * pricingConfig.laundryPackageFeeCents +
++    extras.guests * nights * pricingConfig.touristTaxPerPersonPerNightCents +
++    pricingConfig.cleaningFeeCents;
+ 
+   return {
+-    totalAmountCents,
++    totalAmountCents: totalAmountCents + extrasAmountCents,
+     currency: apartment.currency,
+-    nights: countNights(checkIn, checkOut),
++    nights,
+     lineItems,
++    extrasAmountCents,
+   };
+ }
+ 
+@@ -200,10 +229,39 @@ export function renderInvoiceHtml(input: InvoiceHtmlInput) {
+     )
+     .join("");
+ 
++  const extrasRows = [
++    input.booking.extraGuests > 0
++      ? `<div style="display:flex;justify-content:space-between;margin-bottom:8px;color:#57534e;"><span>Zusatzpersonen (${input.booking.extraGuests} x ${input.pricing.nights} Nächte)</span><span>${formatMoney(input.booking.extraGuests * input.pricing.nights * input.pricingConfig.extraGuestPerNightCents, input.pricing.currency)}</span></div>`
++      : "",
++    input.booking.hasPet
++      ? `<div style="display:flex;justify-content:space-between;margin-bottom:8px;color:#57534e;"><span>Haustierpauschale (${input.pricing.nights} Nächte)</span><span>${formatMoney(input.pricing.nights * input.pricingConfig.petFeePerNightCents, input.pricing.currency)}</span></div>`
++      : "",
++    input.booking.laundryPackages > 0
++      ? `<div style="display:flex;justify-content:space-between;margin-bottom:8px;color:#57534e;"><span>Wäschepakete (${input.booking.laundryPackages})</span><span>${formatMoney(input.booking.laundryPackages * input.pricingConfig.laundryPackageFeeCents, input.pricing.currency)}</span></div>`
++      : "",
++    input.pricingConfig.touristTaxPerPersonPerNightCents > 0
++      ? `<div style="display:flex;justify-content:space-between;margin-bottom:8px;color:#57534e;"><span>Kurtaxe (${input.booking.guests} x ${input.pricing.nights} Nächte)</span><span>${formatMoney(input.booking.guests * input.pricing.nights * input.pricingConfig.touristTaxPerPersonPerNightCents, input.pricing.currency)}</span></div>`
++      : "",
++    input.pricingConfig.cleaningFeeCents > 0
++      ? `<div style="display:flex;justify-content:space-between;margin-bottom:8px;color:#57534e;"><span>Endreinigung</span><span>${formatMoney(input.pricingConfig.cleaningFeeCents, input.pricing.currency)}</span></div>`
++      : "",
++  ].join("");
++
+   const notes = input.booking.notes
+     ? `<p style="margin:12px 0 0;color:#57534e;"><strong>Nachricht des Gastes:</strong> ${escapeHtml(input.booking.notes)}</p>`
+     : "";
+ 
++  const addressParts = [
++    [input.customer.street, input.customer.houseNumber].filter(Boolean).join(" "),
++    [input.customer.postalCode, input.customer.city].filter(Boolean).join(" "),
++    input.customer.country ?? "",
++  ].filter(Boolean);
++
++  const customerAddressHtml =
++    addressParts.length > 0
++      ? `<p style="margin:0;color:#57534e;">${escapeHtml(addressParts.join(", "))}</p>`
++      : "";
++
+   return `
+     <section style="font-family:Arial, Helvetica, sans-serif;color:#1c1917;line-height:1.5;max-width:900px;margin:0 auto;">
+       <div style="display:flex;justify-content:space-between;gap:24px;margin-bottom:32px;">
+@@ -222,6 +280,7 @@ export function renderInvoiceHtml(input: InvoiceHtmlInput) {
+         <div style="background:#fafaf9;border:1px solid #e7e5e4;border-radius:16px;padding:16px;">
+           <p style="margin:0 0 8px;font-size:12px;text-transform:uppercase;color:#a8a29e;">Rechnung an</p>
+           <p style="margin:0;font-weight:600;">${escapeHtml(input.customer.firstName)} ${escapeHtml(input.customer.lastName)}</p>
++          ${customerAddressHtml}
+           <p style="margin:0;color:#57534e;">${escapeHtml(input.customer.email)}</p>
+           <p style="margin:0;color:#57534e;">${escapeHtml(input.customer.phone ?? "-")}</p>
+         </div>
+@@ -230,6 +289,11 @@ export function renderInvoiceHtml(input: InvoiceHtmlInput) {
+           <p style="margin:0;color:#57534e;">Unterkunft: <strong style="color:#1c1917;">${escapeHtml(input.apartmentTitle)}</strong></p>
+           <p style="margin:0;color:#57534e;">Reisezeitraum: <strong style="color:#1c1917;">${formatDate(input.booking.checkIn)} - ${formatDate(input.booking.checkOut)}</strong></p>
+           <p style="margin:0;color:#57534e;">Gäste: <strong style="color:#1c1917;">${input.booking.guests}</strong></p>
++          <p style="margin:0;color:#57534e;">Zusatzpersonen: <strong style="color:#1c1917;">${input.booking.extraGuests}</strong></p>
++          <p style="margin:0;color:#57534e;">Haustier: <strong style="color:#1c1917;">${input.booking.hasPet ? "ja" : "nein"}</strong></p>
++          <p style="margin:0;color:#57534e;">Wäschepakete: <strong style="color:#1c1917;">${input.booking.laundryPackages}</strong></p>
++          <p style="margin:0;color:#57534e;">Kurtaxe: <strong style="color:#1c1917;">${formatMoney(input.booking.guests * input.pricing.nights * input.pricingConfig.touristTaxPerPersonPerNightCents, input.pricing.currency)}</strong></p>
++          <p style="margin:0;color:#57534e;">Endreinigung: <strong style="color:#1c1917;">${formatMoney(input.pricingConfig.cleaningFeeCents, input.pricing.currency)}</strong></p>
+           <p style="margin:0;color:#57534e;">Buchungs-ID: <strong style="color:#1c1917;">${escapeHtml(input.booking.id)}</strong></p>
+         </div>
+       </div>
+@@ -253,6 +317,7 @@ export function renderInvoiceHtml(input: InvoiceHtmlInput) {
+             <span>Gesamtbetrag</span>
+             <strong>${formatMoney(input.schedule.totalAmountCents, input.pricing.currency)}</strong>
+           </div>
++          ${extrasRows}
+           <div style="display:flex;justify-content:space-between;margin-bottom:8px;color:#57534e;">
+             <span>Anzahlung 25%</span>
+             <span>${formatMoney(input.schedule.depositAmountCents, input.pricing.currency)}</span>
+diff --git a/src/lib/invoices.ts b/src/lib/invoices.ts
+index e81ebec..3206411 100644
+--- a/src/lib/invoices.ts
++++ b/src/lib/invoices.ts
+@@ -5,12 +5,16 @@ import {
+   calculateBookingPrice,
+   renderInvoiceHtml,
+ } from "@/lib/billing";
++import { DEFAULT_BOOKING_PRICING_CONFIG, getBookingPricingConfig } from "@/lib/booking-pricing";
+ 
+ type FullBooking = {
+   id: string;
+   checkIn: Date;
+   checkOut: Date;
+   guests: number;
++  extraGuests: number;
++  hasPet: boolean;
++  laundryPackages: number;
+   notes: string | null;
+   createdAt: Date;
+   currency: string;
+@@ -31,6 +35,11 @@ type FullBooking = {
+     lastName: string;
+     email: string;
+     phone: string | null;
++    street: string | null;
++    houseNumber: string | null;
++    postalCode: string | null;
++    city: string | null;
++    country: string | null;
+   };
+ };
+ 
+@@ -57,6 +66,9 @@ export async function createInvoiceForBooking(bookingId: string) {
+       checkIn: true,
+       checkOut: true,
+       guests: true,
++      extraGuests: true,
++      hasPet: true,
++      laundryPackages: true,
+       notes: true,
+       createdAt: true,
+       currency: true,
+@@ -85,6 +97,11 @@ export async function createInvoiceForBooking(bookingId: string) {
+           lastName: true,
+           email: true,
+           phone: true,
++          street: true,
++          houseNumber: true,
++          postalCode: true,
++          city: true,
++          country: true,
+         },
+       },
+     },
+@@ -98,6 +115,7 @@ export async function createInvoiceForBooking(bookingId: string) {
+   }
+ 
+   const typedBooking = booking as FullBooking;
++  const pricingConfig = (await getBookingPricingConfig()) ?? DEFAULT_BOOKING_PRICING_CONFIG;
+ 
+   const pricing = calculateBookingPrice(
+     {
+@@ -108,6 +126,12 @@ export async function createInvoiceForBooking(bookingId: string) {
+     },
+     typedBooking.checkIn,
+     typedBooking.checkOut,
++    {
++      guests: typedBooking.guests,
++      hasPet: typedBooking.hasPet,
++      laundryPackages: typedBooking.laundryPackages,
++    },
++    pricingConfig,
+   );
+ 
+   const invoice = await prisma.$transaction(async (tx) => {
+@@ -128,14 +152,23 @@ export async function createInvoiceForBooking(bookingId: string) {
+         lastName: typedBooking.customer.lastName,
+         email: typedBooking.customer.email,
+         phone: typedBooking.customer.phone,
++        street: typedBooking.customer.street,
++        houseNumber: typedBooking.customer.houseNumber,
++        postalCode: typedBooking.customer.postalCode,
++        city: typedBooking.customer.city,
++        country: typedBooking.customer.country,
+       },
+       booking: {
+         id: typedBooking.id,
+         checkIn: typedBooking.checkIn,
+         checkOut: typedBooking.checkOut,
+         guests: typedBooking.guests,
++        extraGuests: typedBooking.extraGuests,
++        hasPet: typedBooking.hasPet,
++        laundryPackages: typedBooking.laundryPackages,
+         notes: typedBooking.notes,
+       },
++      pricingConfig,
+       pricing,
+       schedule,
+     });
+diff --git a/src/lib/types.ts b/src/lib/types.ts
+index f844b38..c486d12 100644
+--- a/src/lib/types.ts
++++ b/src/lib/types.ts
+@@ -25,14 +25,36 @@ export type AvailabilityResult = {
+   reason: string | null;
+ };
+ 
++export type AvailabilityWindow = {
++  checkIn: string;
++  checkOut: string;
++};
++
+ export type BookingRequestPayload = {
+   apartmentId: string;
+   firstName: string;
+   lastName: string;
+   email: string;
+   phone?: string;
++  street: string;
++  houseNumber: string;
++  postalCode: string;
++  city: string;
++  country: string;
+   checkIn: string;
+   checkOut: string;
+   guests: number;
++  agbAccepted: boolean;
++  hasPet?: boolean;
++  laundryPackages?: number;
+   notes?: string;
+ };
++
++export type BookingPricingConfig = {
++  id: string;
++  extraGuestPerNightCents: number;
++  petFeePerNightCents: number;
++  laundryPackageFeeCents: number;
++  touristTaxPerPersonPerNightCents: number;
++  cleaningFeeCents: number;
++};
