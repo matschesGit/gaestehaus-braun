@@ -43,8 +43,15 @@ export async function POST(request: Request) {
     return Response.json({ ok: true });
   } catch (error) {
     console.error("Login error:", error);
+    if (error instanceof Error) {
+      console.error("Error message:", error.message);
+      console.error("Error stack:", error.stack);
+    }
     return Response.json(
-      { error: "Serverfehler. Bitte versuchen Sie es später erneut." },
+      { 
+        error: "Serverfehler. Bitte versuchen Sie es später erneut.",
+        ...(process.env.NODE_ENV === "development" && { debug: String(error) })
+      },
       { status: 500 }
     );
   }
